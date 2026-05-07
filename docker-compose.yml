@@ -1,0 +1,27 @@
+version: '3.8'
+
+services:
+  app-ui:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    volumes:
+      - ./app:/app
+    depends_on:
+      - db-loader
+    command: chainlit run app/main.py --host 0.0.0.0 --port 8000
+
+  db-loader:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    env_file:
+      - .env
+    volumes:
+      - ./data:/data
+      - ./scripts:/scripts
+    command: python scripts/load_data.py
