@@ -17,20 +17,18 @@ from graph_state import ALLOWED_CATEGORIES, CATCHPHRASE
 
 
 class ChainlitDeepSeekThinkingCallback(AsyncCallbackHandler):
-    """Streams DeepSeek reasoning_content into a Chainlit Step."""
+    """Consumes DeepSeek reasoning events without exposing hidden reasoning in the UI."""
 
-    def __init__(self, step: cl.Step) -> None:
-        self.step = step
+    def __init__(self) -> None:
         self.has_reasoning = False
 
     async def on_reasoning_delta(self, token: str, **_: Any) -> None:
-        self.has_reasoning = True
-        await self.step.stream_token(token)
+        if token:
+            self.has_reasoning = True
 
     async def on_reasoning_complete(self, reasoning: str, **_: Any) -> None:
         if reasoning and not self.has_reasoning:
             self.has_reasoning = True
-            await self.step.stream_token(reasoning)
 
 
 def last_ai_content(messages: list[Any]) -> str:
@@ -70,9 +68,9 @@ async def on_message(message: cl.Message) -> None:
         graph_input["current_context"] = ""
         cl.user_session.set("initialized_graph_state", True)
 
-    async with cl.Step(name="น้องหลงทางกำลังคิด...", type="llm") as step:
+    async with cl.Step(name="น้องหลงทางกำลังตรวจคำถาม...", type="tool") as step:
         step.input = message.content
-        thinking_callback = ChainlitDeepSeekThinkingCallback(step)
+        thinking_callback = ChainlitDeepSeekThinkingCallback()
         result = await graph.ainvoke(
             graph_input,
             config={
@@ -80,8 +78,7 @@ async def on_message(message: cl.Message) -> None:
                 "callbacks": [thinking_callback],
             },
         )
-        if not thinking_callback.has_reasoning:
-            step.output = "ตรวจคำถาม ค้นคลังสินค้า และจัดคำตอบเรียบร้อย"
+        step.output = "ตรวจคำถาม ค้นคลังสินค้า และจัดคำตอบเรียบร้อย"
 
     answer = last_ai_content(result.get("messages", []))
     if not answer:

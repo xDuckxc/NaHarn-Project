@@ -3,11 +3,16 @@
 .env.*
 !.env.example
 *.local
+*.secret
+*.secrets
+*.key
+*.pem
 
-# Python
+# Python virtual environments and caches
 .venv/
 venv/
 env/
+ENV/
 __pycache__/
 *.py[cod]
 *$py.class
@@ -15,8 +20,48 @@ __pycache__/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
+.pyre/
+.tox/
+.nox/
 .coverage
+.coverage.*
+coverage.xml
 htmlcov/
+
+# Local QA, test, and regression artifacts
+QA_REPORT*.md
+qa_report*.md
+*_QA_REPORT*.md
+qa-results/
+qa-results*/
+qa_reports/
+qa_reports*/
+test-results/
+test-results*/
+reports/
+reports*/
+artifacts/
+artifacts*/
+screenshots/
+screenshots*/
+recordings/
+recordings*/
+traces/
+traces*/
+*.har
+*.trace
+*.webm
+
+# Local QA/test scratch scripts
+# Keep production code out of this naming pattern. Force-add intentionally shared tests with `git add -f`.
+scripts/qa_*.py
+scripts/*_qa*.py
+scripts/test_*.py
+scripts/*_test*.py
+scripts/regression_*.py
+scripts/*_regression*.py
+tests/
+test/
 
 # Chainlit runtime files
 .chainlit/
@@ -27,7 +72,18 @@ chainlit.log
 docker-compose.override.yml
 *.pid
 *.log
-.files
+.files/
+
+# Local databases and generated data dumps
+*.db
+*.sqlite
+*.sqlite3
+*.dump
+*.backup
+*.bak
+*.tmp
+tmp/
+temp/
 
 # HuggingFace / model caches
 hf-cache/
@@ -39,8 +95,13 @@ models/
 Thumbs.db
 .idea/
 .vscode/
+*.swp
+*.swo
 
 # Frontend/transient dependencies if added later
 node_modules/
 dist/
 build/
+.next/
+.nuxt/
+out/

@@ -115,11 +115,31 @@ THAI_CATEGORY_KEYWORDS: dict[str, str] = {
 }
 
 TERM_SYNONYMS: dict[str, tuple[str, ...]] = {
+    "ขนม": ("เลย์", "ทาโร่", "ป๊อกกี้", "ฮานามิ", "สแน็คแจ๊ค", "เค้ก", "โดนัท", "ครัวซองต์", "ขนมปัง"),
     "เนื้อสัตว์": ("หมู", "ปลากระป๋อง", "แฮม", "กุ้ง", "เนื้อ"),
     "เนื้อ": ("หมู", "ปลากระป๋อง", "แฮม", "กุ้ง", "เนื้อ"),
     "ของคาว": ("ข้าว", "โจ๊ก", "มาม่า", "ปลา", "แซนวิช"),
     "ข้าว": ("ข้าว", "โจ๊ก", "กับข้าว"),
 }
+
+SPECIFIC_PRODUCT_TYPE_KEYWORDS: tuple[str, ...] = (
+    "ขนม",
+    "เนื้อสัตว์",
+    "เนื้อ",
+    "ของคาว",
+    "กับข้าว",
+    "มาม่า",
+    "โจ๊ก",
+    "ข้าว",
+    "ข้าวสาร",
+    "ข้าวสวย",
+    "น้ำดื่ม",
+    "น้ำอัดลม",
+    "เครื่องดื่ม",
+    "มันฝรั่ง",
+    "เบเกอรี่",
+    "เครื่องปรุง",
+)
 
 THAI_NUMBER_WORDS: dict[str, int] = {
     "หนึ่ง": 1,
@@ -303,8 +323,24 @@ GENERIC_QUERY_PHRASES: tuple[str, ...] = (
     "บ้าง",
     "อะไรบ้าง",
     "มีอะไรบ้าง",
+    "ขาย",
+    "ขายบ้าง",
+    "อะไรขายบ้าง",
+    "มีอะไรขายบ้าง",
     "หน่อย",
     "หน่อยสิ",
+    "กับ",
+    "และ",
+    "อยู่",
+    "อยู่ตรง",
+    "อยู่ตรงไหน",
+    "ตรง",
+    "ตรงไหน",
+    "id",
+    "รหัส",
+    "รหัสสินค้า",
+    "เลข",
+    "หมายเลข",
     "น่าสนใจ",
     "อะไรที่",
     "เป็น",
@@ -380,7 +416,6 @@ BROAD_CATEGORY_WORDS: tuple[str, ...] = (
     "เครื่องใช้ไฟฟ้า",
     "ยาสามัญ",
     "ไฟฟ้า",
-    "ขนม",
 )
 
 OUT_OF_STOCK_PATTERNS: tuple[str, ...] = (
@@ -423,6 +458,9 @@ STOCK_REFERENCE_PATTERNS: tuple[str, ...] = (
 BROAD_CATEGORY_PATTERNS: tuple[str, ...] = (
     r"มี\s*อะไร\s*บ้าง",
     r"อะไร\s*บ้าง",
+    r"อะไร\s*ขาย\s*บ้าง",
+    r"ขาย\s*อะไร\s*บ้าง",
+    r"มี\s*.*อะไร\s*ขาย\s*บ้าง",
     r"มี\s*สินค้า\s*อะไร",
     r"มี\s*ของ\s*อะไร",
     r"ใน\s*หมวด",
@@ -655,6 +693,11 @@ def detects_broad_category_query(text: str) -> bool:
     return _matches_any_pattern(text, BROAD_CATEGORY_PATTERNS)
 
 
+def detects_specific_product_type_query(text: str) -> bool:
+    normalized = normalize_user_text(text)
+    return any(keyword in normalized for keyword in SPECIFIC_PRODUCT_TYPE_KEYWORDS)
+
+
 def detects_out_of_domain(text: str) -> bool:
     return (
         _matches_any_pattern(text, CODING_OUT_OF_DOMAIN_PATTERNS)
@@ -743,6 +786,38 @@ def is_short_product_name_query(text: str) -> bool:
     return bool(product_query_terms(stripped, {}))
 
 
+def dedupe_ints(values: Iterable[int]) -> list[int]:
+    result: list[int] = []
+    for value in values:
+        int_value = int(value)
+        if int_value not in result:
+            result.append(int_value)
+    return result
+
+
+def parse_product_ids_for_lookup(text: str) -> list[int]:
+    if has_add_request(text):
+        return []
+
+    explicit_values = [
+        int(match.group(1))
+        for match in re.finditer(r"(?:id|ID|รหัส(?:สินค้า)?|หมายเลข|เลข)\s*#?\s*(\d+)", text, flags=re.IGNORECASE)
+    ]
+    cleaned = normalize_user_text(text).lower()
+    cleaned = re.sub(
+        r"(?:id|รหัส(?:สินค้า)?|สินค้า|รายการ|หมายเลข|เลข|หา|ค้น|ดู|อยู่ไหน|อยู่ตรงไหน|ตรงไหน|อยู่|ตรง|และ|กับ|,|，|#)",
+        " ",
+        cleaned,
+        flags=re.IGNORECASE,
+    )
+    cleaned = re.sub(r"[\d\s]+", " ", cleaned)
+    if cleaned.strip():
+        return dedupe_ints(explicit_values)
+
+    bare_values = [int(match.group(0)) for match in re.finditer(r"\d+", text)]
+    return dedupe_ints([*explicit_values, *bare_values])
+
+
 def deterministic_general_response(text: str) -> str:
     if is_greeting(text):
         return f"{CATCHPHRASE} สวัสดีครับ น้องหลงทางพร้อมช่วยหาสินค้าในห้างแล้วครับ"
@@ -791,6 +866,8 @@ def heuristic_route(text: str) -> str:
         return "general"
     if detects_stock_query(text):
         return "search"
+    if parse_product_ids_for_lookup(text):
+        return "search"
     if any(keyword in lowered for keyword in search_keywords) or infer_category(text):
         return "search"
     if is_short_product_name_query(text):
@@ -808,6 +885,9 @@ async def supervisor_node(state: MallState, config: Optional[RunnableConfig] = N
             "direct_response": direct_response,
             "current_context": "deterministic_guard",
             "shopping_list": state.get("shopping_list", []),
+            "constraints": {},
+            "search_results": [],
+            "validated_results": [],
         }
 
     route = heuristic_route(user_text)
@@ -852,19 +932,19 @@ def infer_stock_constraints(text: str) -> SearchConstraints:
 
     upper_patterns = (
         rf"(?:สต็อก|สต๊อก|stock|คงเหลือ|เหลือ)[^\dก-๙]{{0,12}}(?:ต่ำกว่า|น้อยกว่า|<)\s*({STOCK_NUMBER_PATTERN})",
-        rf"(?:ต่ำกว่า|น้อยกว่า|<)\s*({STOCK_NUMBER_PATTERN})\s*(?:ชิ้น|ถุง|อัน|ตัว|เครื่อง|หน่วย)?",
+        rf"(?:ต่ำกว่า|น้อยกว่า|<)\s*({STOCK_NUMBER_PATTERN})\s*(?:ชิ้น|ถุง|อัน|ตัว|เครื่อง|หน่วย)",
     )
     inclusive_upper_patterns = (
         rf"(?:สต็อก|สต๊อก|stock|คงเหลือ|เหลือ)[^\dก-๙]{{0,12}}(?:ไม่เกิน|ไม่เกินกว่า|<=)\s*({STOCK_NUMBER_PATTERN})",
-        rf"(?:ไม่เกิน|ไม่เกินกว่า|<=)\s*({STOCK_NUMBER_PATTERN})\s*(?:ชิ้น|ถุง|อัน|ตัว|เครื่อง|หน่วย)?",
+        rf"(?:ไม่เกิน|ไม่เกินกว่า|<=)\s*({STOCK_NUMBER_PATTERN})\s*(?:ชิ้น|ถุง|อัน|ตัว|เครื่อง|หน่วย)",
     )
     lower_patterns = (
         rf"(?:สต็อก|สต๊อก|stock|คงเหลือ|เหลือ)[^\dก-๙]{{0,12}}(?:มากกว่า|เกินกว่า|>)\s*({STOCK_NUMBER_PATTERN})",
-        rf"(?:มากกว่า|เกินกว่า|>)\s*({STOCK_NUMBER_PATTERN})\s*(?:ชิ้น|ถุง|อัน|ตัว|เครื่อง|หน่วย)?",
+        rf"(?:มากกว่า|เกินกว่า|>)\s*({STOCK_NUMBER_PATTERN})\s*(?:ชิ้น|ถุง|อัน|ตัว|เครื่อง|หน่วย)",
     )
     inclusive_lower_patterns = (
         rf"(?:สต็อก|สต๊อก|stock|คงเหลือ|เหลือ)[^\dก-๙]{{0,12}}(?:ตั้งแต่|อย่างน้อย|>=)\s*({STOCK_NUMBER_PATTERN})",
-        rf"(?:ตั้งแต่|อย่างน้อย|>=)\s*({STOCK_NUMBER_PATTERN})\s*(?:ชิ้น|ถุง|อัน|ตัว|เครื่อง|หน่วย)?",
+        rf"(?:ตั้งแต่|อย่างน้อย|>=)\s*({STOCK_NUMBER_PATTERN})\s*(?:ชิ้น|ถุง|อัน|ตัว|เครื่อง|หน่วย)",
     )
 
     for pattern in upper_patterns:
@@ -916,12 +996,24 @@ def price_filter_text(text: str) -> str:
     return normalized
 
 
+def query_terms_filter_text(text: str) -> str:
+    normalized = price_filter_text(text)
+    price_expression_patterns = (
+        r"(?:งบ|ราคา)?\s*(?:ไม่\s*เกิน|ต่ำกว่า|น้อยกว่า|มากกว่า|เกินกว่า|ตั้งแต่|อย่างน้อย|<=|>=|<|>)\s*\d+(?:\.\d+)?\s*(?:บาท)?",
+        r"(?:งบ|ราคา)\s*\d+(?:\.\d+)?\s*(?:บาท)?",
+        r"\d+(?:\.\d+)?\s*บาท",
+    )
+    for pattern in price_expression_patterns:
+        normalized = re.sub(pattern, " ", normalized, flags=re.IGNORECASE)
+    return normalized
+
+
 def deterministic_constraints(text: str) -> SearchConstraints:
     constraints: SearchConstraints = {"in_stock_only": False}
     category = infer_category(text)
     if category:
         constraints["category"] = category
-        if detects_broad_category_query(text):
+        if detects_broad_category_query(text) and not detects_specific_product_type_query(text):
             constraints["broad_category_query"] = True
     if detects_stock_query(text):
         constraints["stock_query"] = True
@@ -960,6 +1052,10 @@ def deterministic_constraints(text: str) -> SearchConstraints:
 
     result_shape = infer_result_shape(text)
     constraints.update(result_shape)
+    if detects_brand_listing_query(text) and not constraints.get("stock_query"):
+        constraints["group_by"] = "brand"
+    if result_shape.get("max_results") and "ขนม" in normalize_user_text(text):
+        constraints["diversify_results"] = True
     return constraints
 
 
@@ -1034,6 +1130,7 @@ def merge_constraints(primary: SearchConstraints, secondary: SearchConstraints) 
         "in_stock_only": bool(primary.get("in_stock_only") or secondary.get("in_stock_only")),
         "stock_query": bool(primary.get("stock_query") or secondary.get("stock_query")),
         "broad_category_query": bool(primary.get("broad_category_query") or secondary.get("broad_category_query")),
+        "diversify_results": bool(primary.get("diversify_results") or secondary.get("diversify_results")),
     }
     if stock_status:
         merged["stock_status"] = stock_status
@@ -1093,7 +1190,7 @@ def inherit_followup_constraints(
     if "category" not in inherited and previous.get("category"):
         inherited["category"] = previous["category"]
 
-    if detects_broad_category_query(text) and inherited.get("category"):
+    if detects_broad_category_query(text) and inherited.get("category") and not detects_specific_product_type_query(text):
         inherited["broad_category_query"] = True
 
     if not has_explicit_price_filter(text):
@@ -1195,10 +1292,29 @@ def extract_explicit_brand(text: str) -> Optional[str]:
     if not tokens:
         return None
     candidate = " ".join(tokens[:3]).strip()
-    generic_values = {item.lower() for item in GENERIC_QUERY_PHRASES} | set(THAI_NUMBER_WORDS)
-    if candidate.lower() in generic_values or candidate.isdigit():
+    generic_values = (
+        {item.lower() for item in GENERIC_QUERY_PHRASES}
+        | {item.lower() for item in BROAD_CATEGORY_WORDS}
+        | set(THAI_NUMBER_WORDS)
+        | {item.lower() for item in ALLOWED_CATEGORIES}
+    )
+    first_token = tokens[0].strip().lower()
+    if (
+        candidate.lower() in generic_values
+        or first_token in generic_values
+        or infer_category(raw) is not None
+        or candidate.isdigit()
+    ):
         return None
     return candidate
+
+
+def detects_brand_listing_query(text: str) -> bool:
+    if not re.search(r"(?:ยี่ห้อ|แบรนด์)", text, flags=re.IGNORECASE):
+        return False
+    if re.search(r"(?:ยี่ห้อ|แบรนด์)\s*(?:นี้|นั้น|ล่าสุด|พวกนี้)", text, flags=re.IGNORECASE):
+        return False
+    return extract_explicit_brand(text) is None and bool(infer_category(text) or detects_broad_category_query(text))
 
 
 def strip_query_affixes(text: str) -> str:
@@ -1242,7 +1358,7 @@ def product_query_terms(text: str, constraints: SearchConstraints | dict[str, An
     if brand:
         return [brand]
 
-    cleaned = strip_query_affixes(text)
+    cleaned = query_terms_filter_text(strip_query_affixes(text))
     cleaned = re.sub(r"\d+(?:\.\d+)?", " ", cleaned)
     cleaned = re.sub(r"[^\wก-๙\s]", " ", cleaned, flags=re.UNICODE)
 
@@ -1319,7 +1435,66 @@ def filter_by_query_terms(products: list[Product], text: str, constraints: Searc
     if not terms:
         return filtered
 
+    if detects_multi_product_query(text, terms):
+        return [product for product in filtered if any(term_matches_product(term, product) for term in terms)]
+
     return [product for product in filtered if all(term_matches_product(term, product) for term in terms)]
+
+
+def detects_multi_product_query(text: str, terms: list[str]) -> bool:
+    if len(terms) < 2:
+        return False
+    normalized = normalize_user_text(text)
+    return bool(re.search(r"(?:\s|^)(?:กับ|และ|,|，|/)(?:\s|$)", normalized))
+
+
+APPAREL_NAME_KEYWORDS: tuple[str, ...] = (
+    "เสื้อ",
+    "กางเกง",
+    "กระโปรง",
+    "เดรส",
+    "ชุด",
+    "ถุงเท้า",
+)
+
+
+def filter_clothing_wear_intent(products: list[Product], text: str, constraints: SearchConstraints) -> list[Product]:
+    if constraints.get("category") != "เสื้อผ้า":
+        return products
+
+    normalized = normalize_user_text(text)
+    wear_markers = ("ใส่", "สวม", "แต่งตัว", "สบาย", "ไม่ร้อน", "คลายร้อน", "ผ้าโปร่ง")
+    if not any(marker in normalized for marker in wear_markers):
+        return products
+
+    filtered = [
+        product
+        for product in products
+        if any(keyword in str(product.get("name") or "") for keyword in APPAREL_NAME_KEYWORDS)
+    ]
+    if not filtered:
+        return products
+
+    def score(product: Product) -> int:
+        name = str(product.get("name") or "")
+        description = str(product.get("description") or "")
+        haystack = f"{name} {description}"
+        value = 0
+        if "สบาย" in normalized and "สบาย" in haystack:
+            value += 5
+        if "ไม่ร้อน" in normalized and "ไม่ร้อน" in haystack:
+            value += 6
+        if "ร้อน" in normalized and any(keyword in haystack for keyword in ("คลายร้อน", "อากาศร้อน", "ร้อนๆ")):
+            value += 4
+        if any(keyword in haystack for keyword in ("ผ้าโปร่ง", "บางๆ", "ขาสั้น")):
+            value += 3
+        if any(keyword in name for keyword in ("เสื้อสายเดี่ยว", "เสื้อเชิ้ตแขนสั้น", "กางเกงขาสั้น")):
+            value += 2
+        if "ร้อน" in normalized and any(keyword in name for keyword in ("ยีนส์", "กันหนาว")):
+            value -= 3
+        return value
+
+    return sorted(filtered, key=score, reverse=True)
 
 
 async def search_products(
@@ -1416,6 +1591,23 @@ async def search_filter_node(state: MallState, config: Optional[RunnableConfig] 
     constraints = sanitize_constraints_for_text(constraints, user_text)
     constraints = inherit_followup_constraints(constraints, state.get("constraints"), user_text)
     previous_results = state.get("validated_results", [])
+    lookup_ids = parse_product_ids_for_lookup(user_text)
+    if lookup_ids:
+        products = await fetch_products_by_ids(lookup_ids)
+        context = {
+            "query": user_text,
+            "constraints": constraints,
+            "lookup_ids": lookup_ids,
+            "result_count": len(products),
+            "source": "product_id_lookup",
+        }
+        return {
+            "search_results": products,
+            "constraints": constraints,
+            "current_context": json.dumps(context, ensure_ascii=False),
+            "shopping_list": state.get("shopping_list", []),
+        }
+
     if detects_stock_query(user_text) and detects_stock_reference(user_text) and previous_results:
         context = {
             "query": user_text,
@@ -1435,12 +1627,14 @@ async def search_filter_node(state: MallState, config: Optional[RunnableConfig] 
     if requested_limit and constraints.get("group_by") == "brand":
         top_k = max(top_k, requested_limit * 8)
     elif requested_limit:
-        multiplier = 8 if constraints.get("broad_category_query") else 1
+        multiplier = 8 if constraints.get("broad_category_query") or constraints.get("diversify_results") else 1
         top_k = max(top_k, requested_limit * multiplier)
     elif constraints.get("stock_query"):
         top_k = max(top_k, int(os.getenv("TOP_K_STOCK_QUERY_PRODUCTS", "500")))
     elif constraints.get("broad_category_query"):
         top_k = max(top_k, int(os.getenv("TOP_K_BROAD_CATEGORY_PRODUCTS", "500")))
+    elif detects_multi_product_query(user_text, product_query_terms(user_text, constraints)):
+        top_k = max(top_k, int(os.getenv("TOP_K_MULTI_QUERY_PRODUCTS", "120")))
     elif any(term in TERM_SYNONYMS for term in product_query_terms(user_text, constraints)):
         top_k = max(top_k, int(os.getenv("TOP_K_SYNONYM_PRODUCTS", "80")))
 
@@ -1504,7 +1698,10 @@ def stock_answer_summary(products: list[Product], text: str, constraints: Search
             brand = str(product.get("brand") or "ไม่ระบุแบรนด์")
             brand_totals[brand] = brand_totals.get(brand, 0) + int(product.get("stock_quantity") or 0)
         parts = [f"{brand} {quantity} {unit}" for brand, quantity in sorted(brand_totals.items())]
-        return f"สรุปคงเหลือตามแบรนด์: {', '.join(parts)} รวมทั้งหมด {total_stock} {unit}ครับ"
+        prefix = "สรุปคงเหลือตามแบรนด์: "
+        if detects_stock_reference(text) and len(brand_totals) > 1:
+            prefix = "จากผลล่าสุดมีหลายแบรนด์ น้องสรุปทุกแบรนด์ให้ก่อนนะครับ: "
+        return f"{prefix}{', '.join(parts)} รวมทั้งหมด {total_stock} {unit}ครับ"
 
     return f"รวมคงเหลือ {total_stock} {unit} จาก {len(products)} รายการครับ"
 
@@ -1580,6 +1777,7 @@ def apply_result_shape(products: list[Product], constraints: SearchConstraints) 
     group_by = constraints.get("group_by")
 
     if group_by == "brand":
+        limit = max_results or int(os.getenv("DEFAULT_BRAND_RECOMMENDATION_LIMIT", "5"))
         unique: list[Product] = []
         seen_brands: set[str] = set()
         for product in products:
@@ -1588,12 +1786,12 @@ def apply_result_shape(products: list[Product], constraints: SearchConstraints) 
                 continue
             seen_brands.add(brand)
             unique.append(product)
-            if max_results and len(unique) >= max_results:
+            if limit and len(unique) >= limit:
                 break
         return unique
 
     if max_results:
-        if constraints.get("broad_category_query"):
+        if constraints.get("broad_category_query") or constraints.get("diversify_results"):
             return diversify_products(products, max_results)
         return products[:max_results]
     if constraints.get("broad_category_query"):
@@ -1617,16 +1815,18 @@ def result_intro(products: list[Product], constraints: SearchConstraints) -> str
             return "น้องหลงทางคัดแบรนด์ที่สต็อกเหลือ 0 ให้แล้วครับ"
         return "น้องหลงทางคัดแบรนด์ที่มีของในสต็อกให้แล้วครับ"
 
+    if stock_status == "out_of_stock":
+        return "น้องหลงทางเจอสินค้าที่สต็อกเหลือ 0 ตามคำค้นครับ"
+    if constraints.get("max_stock") is not None or constraints.get("min_stock") is not None:
+        return "น้องหลงทางเช็กสินค้าตามเงื่อนไขจำนวนสต็อกให้แล้วครับ"
+    if constraints.get("stock_query"):
+        return "น้องหลงทางเช็กจำนวนคงเหลือให้แล้วครับ"
     if requested_limit:
         return f"น้องหลงทางคัดมาให้ {len(products)} รายการตามที่ขอครับ"
     if constraints.get("broad_category_query") and constraints.get("category"):
         return f"น้องหลงทางคัดตัวอย่างสินค้าในหมวด{constraints['category']}แบบหลายชนิดให้แล้วครับ"
-    if constraints.get("max_stock") is not None or constraints.get("min_stock") is not None:
-        return "น้องหลงทางเช็กสินค้าตามเงื่อนไขจำนวนสต็อกให้แล้วครับ"
-    if stock_status == "out_of_stock":
-        return "น้องหลงทางเจอสินค้าที่สต็อกเหลือ 0 ตามคำค้นครับ"
-    if constraints.get("stock_query"):
-        return "น้องหลงทางเช็กจำนวนคงเหลือให้แล้วครับ"
+    if constraints.get("max_price") is not None or constraints.get("min_price") is not None:
+        return "น้องหลงทางคัดสินค้าตามงบและเงื่อนไขราคาให้แล้วครับ"
     return "น้องหลงทางเจอสินค้าในสต็อกให้แล้วครับ"
 
 
@@ -1656,6 +1856,7 @@ async def navigation_stock_node(state: MallState, config: Optional[RunnableConfi
         eligible.append(enriched)  # type: ignore[arg-type]
 
     eligible = filter_by_query_terms(eligible, user_text, constraints)
+    eligible = filter_clothing_wear_intent(eligible, user_text, constraints)
     shaped_results = apply_result_shape(eligible, constraints)
 
     if not shaped_results:
@@ -1828,8 +2029,7 @@ async def cart_route_node(state: MallState, config: Optional[RunnableConfig] = N
     user_text = latest_user_text(state)
     shopping_list = list(state.get("shopping_list", []))
     previous_results = state.get("validated_results", [])
-    valid_result_ids = {int(product["id"]) for product in previous_results if "id" in product}
-    product_ids = parse_product_ids_for_add(user_text, valid_result_ids or None)
+    product_ids = parse_product_ids_for_add(user_text)
     requested_quantity = parse_quantity_for_add(user_text)
 
     if wants_all_results(user_text) and previous_results:
@@ -1887,6 +2087,8 @@ async def cart_route_node(state: MallState, config: Optional[RunnableConfig] = N
             f"{CATCHPHRASE} น้องหลงทางเพิ่มให้ในลิสต์แล้วครับ{multi_quantity_note}: {names}\n\n"
             "พิมพ์ `สรุปเส้นทาง` ได้เลยถ้าพร้อมเดินซื้อของ"
         )
+        if rejected_messages:
+            content += "\n\nรายการที่ไม่ได้เพิ่ม:\n" + "\n".join(f"- {message}" for message in rejected_messages)
         if detects_price_override_request(user_text):
             content += "\n\nราคาจะใช้จากฐานข้อมูลสินค้าเท่านั้น น้องไม่สามารถตั้งราคาเป็นติดลบหรือแก้ส่วนลดเองได้ครับ"
     elif rejected_messages:
@@ -1920,6 +2122,9 @@ async def direct_response_node(state: MallState, config: Optional[RunnableConfig
         "messages": [AIMessage(content=content)],
         "shopping_list": state.get("shopping_list", []),
         "current_context": "deterministic_guard",
+        "constraints": {},
+        "search_results": [],
+        "validated_results": [],
     }
 
 

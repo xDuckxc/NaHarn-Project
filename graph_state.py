@@ -89,6 +89,7 @@ class SearchConstraints(TypedDict, total=False):
     stock_status: Literal["in_stock", "out_of_stock"]
     stock_query: bool
     broad_category_query: bool
+    diversify_results: bool
     max_results: int
     group_by: Literal["brand", "product"]
 
