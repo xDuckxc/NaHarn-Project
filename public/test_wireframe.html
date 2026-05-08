@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Test Wireframe</title>
+    <style>
+        body { margin: 0; }
+        canvas { display: block; }
+    </style>
+</head>
+<body>
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js"
+        }
+    }
+    </script>
+    
+    <script type="module">
+        import * as THREE from 'three';
+        
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x000000);
+        
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.z = 30;
+        
+        const renderer = new THREE.WebGLRenderer();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+        
+        // Create wireframe boxes
+        const colors = [0xFF0000, 0x00FF00, 0x0000FF, 0xFFFF00, 0xFF00FF];
+        
+        for (let i = 0; i < 5; i++) {
+            const geometry = new THREE.BoxGeometry(5, 5, 5);
+            const edges = new THREE.EdgesGeometry(geometry);
+            const material = new THREE.LineBasicMaterial({ color: colors[i], linewidth: 3 });
+            const wireframe = new THREE.LineSegments(edges, material);
+            wireframe.position.x = (i - 2) * 8;
+            scene.add(wireframe);
+        }
+        
+        // Add text
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        canvas.width = 512;
+        canvas.height = 128;
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 48px Arial';
+        ctx.fillText('Wireframe Test', 50, 80);
+        
+        const texture = new THREE.CanvasTexture(canvas);
+        const spriteMaterial = new THREE.SpriteMaterial({ map: texture });
+        const sprite = new THREE.Sprite(spriteMaterial);
+        sprite.position.set(0, 8, 0);
+        sprite.scale.set(16, 4, 1);
+        scene.add(sprite);
+        
+        function animate() {
+            requestAnimationFrame(animate);
+            scene.rotation.y += 0.005;
+            renderer.render(scene, camera);
+        }
+        animate();
+        
+        console.log('Test scene created with 5 wireframe boxes');
+    </script>
+</body>
+</html>

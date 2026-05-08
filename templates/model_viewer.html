@@ -104,7 +104,60 @@
             wireframe.position.set(box.x, box.y, box.z);
             scene.add(wireframe);
         });
+        
+        // Section boxes (สีเขียว)
+        const sections = [
+            { zone: 'A', x: -27, y: 6, z: 68, w: 23, h: 12, d: 4 },
+            { zone: 'A', x: -27, y: 6, z: 57, w: 23, h: 12, d: 4 },
+            { zone: 'A', x: -27, y: 6, z: 47, w: 23, h: 12, d: 4 },
+            { zone: 'A', x: -27, y: 6, z: 35, w: 23, h: 12, d: 4 },
+            { zone: 'A', x: -27, y: 6, z: 25, w: 23, h: 12, d: 4 },
+            { zone: 'B', x: -27, y: 6, z: 15, w: 23, h: 12, d: 4 },
+            { zone: 'B', x: -27, y: 6, z: 5, w: 23, h: 12, d: 4 },
+            { zone: 'B', x: -27, y: 6, z: -5, w: 23, h: 12, d: 4 },
+            { zone: 'B', x: -27, y: 6, z: -15, w: 23, h: 12, d: 4 },
+            { zone: 'B', x: -27, y: 6, z: -25, w: 23, h: 12, d: 4 }
+        ];
+        
+        sections.forEach(box => {
+            const geometry = new THREE.BoxGeometry(box.w, box.h, box.d);
+            const edges = new THREE.EdgesGeometry(geometry);
+            const material = new THREE.LineBasicMaterial({ color: 0xFFFF00, linewidth: 1 });
+            const wireframe = new THREE.LineSegments(edges, material);
+            wireframe.position.set(box.x, box.y, box.z);
+            scene.add(wireframe);
+        });
+        
+        // Shelf boxes (สีเขียว/ฟ้า)
+        const shelves = [
+            { zone: 'A', x: -27, y: 6, z: 67, w: 20, h: 9, d: 2, color: 0x00FF00 },
+            { zone: 'A', x: -27, y: 6, z: 59, w: 20, h: 9, d: 2, color: 0x00FF00 },
+            { zone: 'A', x: -27, y: 6, z: 55.5, w: 20, h: 9, d: 2, color: 0x00FF00 },
+            { zone: 'A', x: -27, y: 6, z: 48, w: 20, h: 9, d: 2, color: 0x00FF00 },
+            { zone: 'A', x: -27, y: 6, z: 45, w: 20, h: 9, d: 2, color: 0x00FF00 },
+            { zone: 'A', x: -27, y: 6, z: 37, w: 20, h: 9, d: 2, color: 0x00FF00 },
+            { zone: 'A', x: -27, y: 6, z: 34, w: 20, h: 9, d: 2, color: 0x00FF00 },
+            { zone: 'A', x: -27, y: 6, z: 26, w: 20, h: 9, d: 2, color: 0x00FF00 },
+            { zone: 'B', x: -27, y: 6, z: 16, w: 20, h: 9, d: 2, color: 0x00FF00 },
+            { zone: 'B', x: -27, y: 6, z: 8, w: 20, h: 9, d: 2, color: 0x00FF00 },
+            { zone: 'B', x: -27, y: 6, z: 4, w: 20, h: 9, d: 2, color: 0x00FF00 },
+            { zone: 'B', x: -27, y: 6, z: -4, w: 20, h: 9, d: 2, color: 0x00FF00 },
+            { zone: 'B', x: -27, y: 6, z: -6, w: 20, h: 9, d: 2, color: 0x00FF00 },
+            { zone: 'B', x: -27, y: 6, z: -13, w: 20, h: 9, d: 2, color: 0x00FF00 },
+            { zone: 'B', x: -27, y: 6, z: -17, w: 20, h: 9, d: 2, color: 0x00FF00 },
+            { zone: 'B', x: -27, y: 6, z: -25, w: 20, h: 9, d: 2, color: 0x00FF00 }
+        ];
+        
+        shelves.forEach(box => {
+            const geometry = new THREE.BoxGeometry(box.w, box.h, box.d);
+            const edges = new THREE.EdgesGeometry(geometry);
+            const material = new THREE.LineBasicMaterial({ color: box.color, linewidth: 1 });
+            const wireframe = new THREE.LineSegments(edges, material);
+            wireframe.position.set(box.x, box.y, box.z);
+            scene.add(wireframe);
+        });
 
+        // Section boxes (สีเทา)
         // Zone labels
         const zones = [
     { name: 'A', x: -27, y: 15, z: 46 },
@@ -229,6 +282,7 @@ zones.forEach((zone) => {
         };
 
         console.log('3D Viewer ready. API: window.mall3D');
+        
     </script>
 </body>
 </html>
