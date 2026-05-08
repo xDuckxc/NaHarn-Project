@@ -1963,6 +1963,28 @@ def parse_quantity_for_add(text: str) -> int:
     return max(1, quantity)
 
 
+def extract_add_target_text(text: str) -> str:
+    if not has_add_request(text):
+        return ""
+
+    command_match = re.search(
+        r"(?:เพิ่ม|หยิบ|เอา|ใส่(?:รถเข็น|ตะกร้า)|ลงตะกร้า)(.*)$",
+        text,
+        flags=re.IGNORECASE,
+    )
+    segment = command_match.group(1) if command_match else text
+    cleaned = re.sub(
+        r"(?:จำนวน\s*\d+\s*(?:ชิ้น|เครื่อง|อัน|ตัว|ถุง|หน่วย)|อีก\s*\d+\s*(?:ชิ้น|เครื่อง|อัน|ตัว|ถุง|หน่วย)|\d+\s*(?:ชิ้น|เครื่อง|อัน|ตัว|ถุง|หน่วย)|(?:id|ID|รหัส(?:สินค้า)?|หมายเลข|เลข)\s*#?\s*\d+)",
+        " ",
+        segment,
+        flags=re.IGNORECASE,
+    )
+    cleaned = re.sub(r"[\s,，]+", " ", cleaned).strip()
+    if not cleaned or cleaned.lower() in {"ทั้งหมด", "ทุกอัน", "ทุกตัว", "ทุกชิ้น", "ทุกรายการ"}:
+        return ""
+    return cleaned
+
+
 def detects_price_override_request(text: str) -> bool:
     return bool(re.search(r"(?:ติดลบ|ราคาติดลบ|ส่วนลด|ลดราคาเอง|ฟรี|ศูนย์บาท)", text, flags=re.IGNORECASE))
 
@@ -2032,6 +2054,7 @@ async def cart_route_node(state: MallState, config: Optional[RunnableConfig] = N
     previous_results = state.get("validated_results", [])
     product_ids = parse_product_ids_for_add(user_text)
     requested_quantity = parse_quantity_for_add(user_text)
+    add_target_text = extract_add_target_text(user_text)
 
     if wants_all_results(user_text) and previous_results:
         product_ids = [int(product["id"]) for product in previous_results if "id" in product]
@@ -2045,6 +2068,19 @@ async def cart_route_node(state: MallState, config: Optional[RunnableConfig] = N
                 for position in positions
                 if 0 < position <= len(previous_results) and "id" in previous_results[position - 1]
             ]
+
+    if not product_ids and add_target_text:
+        if previous_results:
+            matched = filter_by_query_terms(previous_results, add_target_text, state.get("constraints", {}))
+            if matched:
+                product_ids = [int(matched[0]["id"])]
+
+        if not product_ids:
+            search_candidates = await search_products(add_target_text, state.get("constraints", {}), top_k=5)
+            for candidate in search_candidates:
+                if term_matches_product(add_target_text, candidate):
+                    product_ids = [int(candidate["id"])]
+                    break
 
     added_products: list[Product] = []
     rejected_messages: list[str] = []
