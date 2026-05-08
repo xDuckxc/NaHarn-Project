@@ -8,7 +8,7 @@ from graph_state import SearchConstraints
 
 
 PRODUCT_SELECT_COLUMNS = (
-    "id,name,brand,category,description,price,stock_quantity,location_info"
+    "id,name,brand,category,description,price,stock_quantity,location_info,coordinates_3d"
 )
 
 
@@ -60,10 +60,10 @@ def upsert_products_postgres(table: str, rows: list[dict[str, Any]], batch_size:
     insert_sql = sql.SQL(
         """
         insert into {} (
-            id, name, brand, category, description, embedding, price, stock_quantity, location_info
+            id, name, brand, category, description, embedding, price, stock_quantity, location_info, coordinates_3d
         )
         values (
-            %s, %s, %s, %s, %s, %s::vector, %s, %s, %s::jsonb
+            %s, %s, %s, %s, %s, %s::vector, %s, %s, %s::jsonb, %s::jsonb
         )
         on conflict (id) do update set
             name = excluded.name,
@@ -73,7 +73,8 @@ def upsert_products_postgres(table: str, rows: list[dict[str, Any]], batch_size:
             embedding = excluded.embedding,
             price = excluded.price,
             stock_quantity = excluded.stock_quantity,
-            location_info = excluded.location_info
+            location_info = excluded.location_info,
+            coordinates_3d = excluded.coordinates_3d
         """
     ).format(sql.Identifier(table))
 
@@ -93,6 +94,7 @@ def upsert_products_postgres(table: str, rows: list[dict[str, Any]], batch_size:
                         row["price"],
                         row["stock_quantity"],
                         json.dumps(row["location_info"], ensure_ascii=False),
+                        json.dumps(row.get("coordinates_3d", {}), ensure_ascii=False),
                     )
                     for row in batch
                 ]
@@ -149,6 +151,7 @@ def search_products_postgres(
             price,
             stock_quantity,
             location_info,
+            coordinates_3d,
             1 - (embedding <=> %s::vector) as similarity
         from {}
         where {}
@@ -181,7 +184,7 @@ def fetch_products_by_ids_postgres(table: str, product_ids: list[int]) -> list[d
 
     query = sql.SQL(
         """
-        select id, name, brand, category, description, price, stock_quantity, location_info
+        select id, name, brand, category, description, price, stock_quantity, location_info, coordinates_3d
         from {}
         where id = any(%s)
         """

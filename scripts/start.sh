@@ -7,7 +7,7 @@ if [ -z "${DEEPSEEK_API_KEY:-}" ]; then
 fi
 
 if [ "${APP_AUTO_LOAD_DB:-true}" = "true" ]; then
-  python db_loader.py --init-db --csv "${PRODUCT_CSV:-mall_products_500.csv}" --skip-if-loaded
+  python db_loader.py --init-db --csv "${PRODUCT_CSV:-mall_products_500_with_3d.csv}" --skip-if-loaded
 fi
 
 exec chainlit run app.py --host "${CHAINLIT_HOST:-0.0.0.0}" --port "${CHAINLIT_PORT:-8000}"

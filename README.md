@@ -238,7 +238,7 @@ Node หลัก:
 
 ## 7. หมายเหตุเรื่องข้อมูล
 
-โปรเจกต์ไม่สร้าง mock data เอง ระบบจะใช้ข้อมูลจาก `mall_products_500.csv` เท่านั้น
+โปรเจกต์ไม่สร้าง mock data เอง ระบบจะใช้ข้อมูลจาก `mall_products_500_with_3d.csv` (มี coordinates_3d) เท่านั้น
 
 ถ้าเปลี่ยน CSV แล้วอยาก reload DB ใหม่ ให้รัน:
 
@@ -246,3 +246,42 @@ Node หลัก:
 docker compose down -v
 docker compose up --build --force-recreate
 ```
+
+## 8. 3D Digital Twin Navigator
+
+ระบบมี 3D mall navigator ที่แสดงตำแหน่งสินค้าแบบ 3 มิติ:
+
+- **โมเดล**: `static/Naharn_3D.glb` (simple floor model 100m × 50m)
+- **พิกัด**: แต่ละสินค้ามี `coordinates_3d` (x, y, z) คำนวณจาก `location_info`
+- **Zones**: A (0-20m), B (20-40m), C (40-60m), D (60-80m), E (80-100m)
+- **Viewer**: เข้าถึงได้ที่ `/public/model_viewer.html` ใน Chainlit UI
+
+### การใช้งาน 3D Viewer
+
+1. เปิด Chainlit UI ที่ `http://localhost:8000`
+2. คลิกลิงก์ **"เปิด 3D Navigator"** ในข้อความต้อนรับ
+3. ใช้เมาส์ลากเพื่อหมุนมุมมอง, scroll เพื่อ zoom
+4. Pin สีแดงแสดงตำแหน่งสินค้า (เมื่อค้นหา)
+
+### API สำหรับ JavaScript Bridge
+
+```javascript
+// เพิ่ม pin สินค้า
+window.mall3D.addPin(id, x, y, z, name);
+
+// ลบ pin ทั้งหมด
+window.mall3D.clearPins();
+
+// Zoom กล้องไปยังตำแหน่ง
+window.mall3D.focusOn(x, y, z, duration);
+```
+
+### สร้าง 3D coordinates ใหม่
+
+ถ้าต้องการสร้างพิกัด 3D ใหม่จาก CSV:
+
+```bash
+python3 scripts/generate_3d_coordinates.py
+```
+
+จะได้ไฟล์ `mall_products_500_with_3d.csv` ที่มี column `coordinates_3d`

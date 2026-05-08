@@ -75,6 +75,7 @@ class Product(TypedDict, total=False):
     price: float
     stock_quantity: int
     location_info: dict[str, Any]
+    coordinates_3d: dict[str, Any]
     similarity: float
     formatted_location: str
 

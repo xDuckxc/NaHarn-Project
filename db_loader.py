@@ -19,7 +19,7 @@ from product_store import (
 )
 
 
-DEFAULT_CSV_PATH = "mall_products_500.csv"
+DEFAULT_CSV_PATH = "mall_products_500_with_3d.csv"
 DEFAULT_EMBEDDING_MODEL = "intfloat/multilingual-e5-large"
 DEFAULT_TABLE = "products"
 
@@ -37,7 +37,8 @@ create table if not exists products (
     embedding vector(1024) not null,
     price double precision not null check (price >= 0),
     stock_quantity integer not null check (stock_quantity >= 0),
-    location_info jsonb not null
+    location_info jsonb not null,
+    coordinates_3d jsonb
 );
 
 create index if not exists products_category_idx on products (category);
@@ -70,6 +71,7 @@ returns table (
     price double precision,
     stock_quantity integer,
     location_info jsonb,
+    coordinates_3d jsonb,
     similarity double precision
 )
 language sql
@@ -84,6 +86,7 @@ as $$
         p.price,
         p.stock_quantity,
         p.location_info,
+        p.coordinates_3d,
         1 - (p.embedding <=> query_embedding) as similarity
     from products p
     where
@@ -151,6 +154,7 @@ def load_csv_rows(csv_path: Path) -> list[dict[str, Any]]:
         for row_number, row in enumerate(reader, start=1):
             category = normalize_category(row["category"])
             location = parse_location_info(row["location_info"])
+            coordinates_3d = parse_location_info(row.get("coordinates_3d", "{}"))
             rows.append(
                 {
                     "id": coerce_product_id(row.get("id", ""), row_number),
@@ -161,6 +165,7 @@ def load_csv_rows(csv_path: Path) -> list[dict[str, Any]]:
                     "price": float(row["price"]),
                     "stock_quantity": int(float(row["stock_quantity"])),
                     "location_info": location,
+                    "coordinates_3d": coordinates_3d,
                 }
             )
     return rows

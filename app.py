@@ -51,7 +51,8 @@ async def on_chat_start() -> None:
     await cl.Message(
         content=(
             f"{CATCHPHRASE} น้องหลงทางพร้อมพาเดินหาของแล้วครับ\n\n"
-            f"บอกชื่อสินค้า งบประมาณ หรือหมวดที่อยากหาได้เลย หมวดที่น้องดูแลคือ: {categories}"
+            f"บอกชื่อสินค้า งบประมาณ หรือหมวดที่อยากหาได้เลย หมวดที่น้องดูแลคือ: {categories}\n\n"
+            f"🗺️ **[เปิด 3D Navigator](/public/model_viewer.html)** เพื่อดูแผนที่ห้างแบบ 3 มิติ"
         )
     ).send()
 

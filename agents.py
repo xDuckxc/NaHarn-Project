@@ -59,7 +59,7 @@ SUPERVISOR_GUARDRAIL_PROMPT = (
 )
 
 PRODUCT_SELECT_COLUMNS = (
-    "id,name,brand,category,description,price,stock_quantity,location_info"
+    "id,name,brand,category,description,price,stock_quantity,location_info,coordinates_3d"
 )
 
 THAI_CATEGORY_KEYWORDS: dict[str, str] = {
@@ -1233,6 +1233,7 @@ def normalize_product(raw: dict[str, Any]) -> Product:
         "price": float(raw.get("price") or 0.0),
         "stock_quantity": int(raw.get("stock_quantity") or 0),
         "location_info": parse_location_info(raw.get("location_info", {})),
+        "coordinates_3d": parse_location_info(raw.get("coordinates_3d", {})),
     }
     if "similarity" in raw and raw["similarity"] is not None:
         product["similarity"] = float(raw["similarity"])
@@ -1892,7 +1893,8 @@ async def navigation_stock_node(state: MallState, config: Optional[RunnableConfi
         f"{table}\n\n"
         f"{truncated_note}"
         "ถ้าจะเก็บไว้ในลิสต์ พิมพ์ `เพิ่ม <ID>` เช่น `เพิ่ม 12` "
-        "หรือพิมพ์ `สรุปเส้นทาง` เพื่อให้น้องเรียงทางเดินให้ครับ"
+        "หรือพิมพ์ `สรุปเส้นทาง` เพื่อให้น้องเรียงทางเดินให้ครับ\n\n"
+        f"🗺️ **[ดูตำแหน่งใน 3D Navigator](/public/model_viewer.html)** ({len(display_results)} รายการ)"
     )
     return {
         "messages": [AIMessage(content=content)],
