@@ -1,37 +1,46 @@
+# Secrets and local environment
+.env
+.env.*
+!.env.example
+*.local
+
 # Python
+.venv/
+venv/
+env/
 __pycache__/
 *.py[cod]
 *$py.class
-*.so
-.Python
-env/
-venv/
-ENV/
-build/
-dist/
-*.egg-info/
+.python-version
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
 
-# Environment
-.env
-.env.local
-
-# Data
-data/*.csv
-!data/.gitkeep
-
-# Chainlit
+# Chainlit runtime files
 .chainlit/
-.files/
+.chainlit.db
+chainlit.log
 
-# IDE
-.vscode/
-.idea/
-*.swp
-*.swo
+# Docker and local runtime artifacts
+docker-compose.override.yml
+*.pid
+*.log
+.files
 
-# OS
+# HuggingFace / model caches
+hf-cache/
+.cache/
+models/
+
+# OS and editor files
 .DS_Store
 Thumbs.db
+.idea/
+.vscode/
 
-# Docker
-*.log
+# Frontend/transient dependencies if added later
+node_modules/
+dist/
+build/

@@ -1,27 +1,75 @@
-version: '3.8'
-
 services:
+  db:
+    image: pgvector/pgvector:pg16
+    container_name: ai-na-harn-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: postgres
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - pg-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  hf-cache-init:
+    image: alpine:3.20
+    container_name: ai-na-harn-hf-cache-init
+    restart: "no"
+    volumes:
+      - hf-cache:/home/app/.cache/huggingface
+    command:
+      - sh
+      - -c
+      - |
+        mkdir -p /home/app/.cache/huggingface
+        rm -rf /home/app/.cache/huggingface/.locks
+        chown -R 1000:1000 /home/app/.cache/huggingface
+
   app-ui:
     build:
       context: .
       dockerfile: Dockerfile
+    container_name: ai-na-harn-chainlit
+    restart: unless-stopped
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      CHAINLIT_HOST: 0.0.0.0
+      CHAINLIT_PORT: 8000
+      CHAINLIT_AUTH_SECRET: ${CHAINLIT_AUTH_SECRET:-}
+      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
+      DEEPSEEK_BASE_URL: ${DEEPSEEK_BASE_URL:-https://api.deepseek.com}
+      DEEPSEEK_MODEL: ${DEEPSEEK_MODEL:-deepseek-v4-pro}
+      DEEPSEEK_REASONING_EFFORT: ${DEEPSEEK_REASONING_EFFORT:-high}
+      DEEPSEEK_MAX_TOKENS: ${DEEPSEEK_MAX_TOKENS:-2048}
+      PRODUCT_BACKEND: ${PRODUCT_BACKEND:-postgres}
+      PRODUCT_DATABASE_URL: ${PRODUCT_DATABASE_URL:-postgresql://postgres:postgres@db:5432/postgres}
+      DATABASE_URL: ""
+      APP_AUTO_LOAD_DB: ${APP_AUTO_LOAD_DB:-true}
+      EMBEDDING_MODEL: ${EMBEDDING_MODEL:-intfloat/multilingual-e5-large}
+      PRODUCT_TABLE: ${PRODUCT_TABLE:-products}
+      TOP_K_PRODUCTS: ${TOP_K_PRODUCTS:-8}
+      HF_HOME: /home/app/.cache/huggingface
+      SENTENCE_TRANSFORMERS_HOME: /home/app/.cache/huggingface
     ports:
       - "8000:8000"
-    env_file:
-      - .env
     volumes:
-      - ./app:/app
+      - ./:/app
+      - hf-cache:/home/app/.cache/huggingface
     depends_on:
-      - db-loader
-    command: chainlit run app/main.py --host 0.0.0.0 --port 8000
+      db:
+        condition: service_healthy
+      hf-cache-init:
+        condition: service_completed_successfully
+    command: ["./scripts/start.sh"]
 
-  db-loader:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    env_file:
-      - .env
-    volumes:
-      - ./data:/data
-      - ./scripts:/scripts
-    command: python scripts/load_data.py
+volumes:
+  hf-cache:
+  pg-data:
