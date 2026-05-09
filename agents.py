@@ -1856,9 +1856,9 @@ async def navigation_stock_node(state: MallState, config: Optional[RunnableConfi
                 continue
         enriched = dict(product)
         enriched["formatted_location"] = format_location(product.get("location_info", {}))
+        # Always use SHELF_POSITIONS, ignore DB coordinates_3d
         coords_3d = get_3d_coordinates(product.get("location_info", {}))
-        if coords_3d:
-            enriched["coordinates_3d"] = coords_3d
+        enriched["coordinates_3d"] = coords_3d  # Set even if None
         eligible.append(enriched)  # type: ignore[arg-type]
 
     eligible = filter_by_query_terms(eligible, user_text, constraints)

@@ -38,7 +38,10 @@
     <div id="viewer"></div>
     <div id="info">
         <strong>AIหน้าฮ่าน 3D Navigator</strong><br>
-        กำลังโหลดโมเดล...
+        กำลังโหลดโมเดล...<br>
+        <small style="opacity: 0.8;">
+            🖱️ ลากซ้าย: หมุน | Scroll: ซูม | ลากขวา: เลื่อน
+        </small>
     </div>
 
     <script type="importmap">
@@ -107,16 +110,31 @@
         
         // Section boxes (สีเขียว)
         const sections = [
-            { zone: 'A', x: -27, y: 6, z: 68, w: 23, h: 12, d: 4 },
-            { zone: 'A', x: -27, y: 6, z: 57, w: 23, h: 12, d: 4 },
-            { zone: 'A', x: -27, y: 6, z: 47, w: 23, h: 12, d: 4 },
-            { zone: 'A', x: -27, y: 6, z: 35, w: 23, h: 12, d: 4 },
-            { zone: 'A', x: -27, y: 6, z: 25, w: 23, h: 12, d: 4 },
-            { zone: 'B', x: -27, y: 6, z: 15, w: 23, h: 12, d: 4 },
-            { zone: 'B', x: -27, y: 6, z: 5, w: 23, h: 12, d: 4 },
-            { zone: 'B', x: -27, y: 6, z: -5, w: 23, h: 12, d: 4 },
-            { zone: 'B', x: -27, y: 6, z: -15, w: 23, h: 12, d: 4 },
-            { zone: 'B', x: -27, y: 6, z: -25, w: 23, h: 12, d: 4 }
+            { zone: 'A', sections: '1', x: -27, y: 6, z: 68, w: 23, h: 12, d: 4 },
+            { zone: 'A', sections: '2', x: -27, y: 6, z: 57, w: 23, h: 12, d: 4 },
+            { zone: 'A', sections: '3',x: -27, y: 6, z: 47, w: 23, h: 12, d: 4 },
+            { zone: 'A', sections: '4',x: -27, y: 6, z: 35, w: 23, h: 12, d: 4 },
+            { zone: 'A', sections: '5',x: -27, y: 6, z: 25, w: 23, h: 12, d: 4 },
+            { zone: 'B', sections: '1',x: -27, y: 6, z: 15, w: 23, h: 12, d: 4 },
+            { zone: 'B', sections: '2',x: -27, y: 6, z: 5, w: 23, h: 12, d: 4 },
+            { zone: 'B', sections: '3',x: -27, y: 6, z: -5, w: 23, h: 12, d: 4 },
+            { zone: 'B', sections: '4', x: -27, y: 6, z: -15, w: 23, h: 12, d: 4 },
+            { zone: 'B', sections: '5',x: -27, y: 6, z: -25, w: 23, h: 12, d: 4 },
+            { zone: 'C', sections: '1',x: -27, y: 6, z: -33, w: 23, h: 12, d: 4 },
+            { zone: 'C', sections: '2',x: -27, y: 6, z: -43, w: 23, h: 12, d: 4 },
+            { zone: 'C', sections: '3',x: -27, y: 6, z: -54, w: 23, h: 12, d: 4 },
+            { zone: 'C', sections: '4', x: -27, y: 6, z: -64, w: 23, h: 12, d: 4 },
+            { zone: 'C', sections: '5',x: -27, y: 6, z: -74, w: 23, h: 12, d: 4 },
+            { zone: 'D', sections: '1',x: 12, y: 6, z: -34, w: 23, h: 12, d: 4 },
+            { zone: 'D', sections: '2',x: 12, y: 6, z: -44, w: 23, h: 12, d: 4 },
+            { zone: 'D', sections: '3',x: 12, y: 6, z: -56, w: 23, h: 12, d: 4 },
+            { zone: 'D', sections: '4', x: 12, y: 6, z: -65, w: 23, h: 12, d: 4 },
+            { zone: 'D', sections: '5',x: 12, y: 6, z: -74, w: 23, h: 12, d: 4 },
+            { zone: 'E', sections: '1',x: 12, y: 6, z: 15, w: 23, h: 12, d: 4 },
+            { zone: 'E', sections: '2',x: 12, y: 6, z: 5, w: 23, h: 12, d: 4 },
+            { zone: 'E', sections: '3',x: 12, y: 6, z: -6, w: 23, h: 12, d: 4 },
+            { zone: 'E', sections: '4', x: 12, y: 6, z: -16, w: 23, h: 12, d: 4 },
+            { zone: 'E', sections: '5',x: 12, y: 6, z: -25, w: 23, h: 12, d: 4 }
         ];
         
         sections.forEach(box => {
@@ -130,22 +148,46 @@
         
         // Shelf boxes (สีเขียว/ฟ้า)
         const shelves = [
-            { zone: 'A', x: -27, y: 6, z: 67, w: 20, h: 9, d: 2, color: 0x00FF00 },
-            { zone: 'A', x: -27, y: 6, z: 59, w: 20, h: 9, d: 2, color: 0x00FF00 },
-            { zone: 'A', x: -27, y: 6, z: 55.5, w: 20, h: 9, d: 2, color: 0x00FF00 },
-            { zone: 'A', x: -27, y: 6, z: 48, w: 20, h: 9, d: 2, color: 0x00FF00 },
-            { zone: 'A', x: -27, y: 6, z: 45, w: 20, h: 9, d: 2, color: 0x00FF00 },
-            { zone: 'A', x: -27, y: 6, z: 37, w: 20, h: 9, d: 2, color: 0x00FF00 },
-            { zone: 'A', x: -27, y: 6, z: 34, w: 20, h: 9, d: 2, color: 0x00FF00 },
-            { zone: 'A', x: -27, y: 6, z: 26, w: 20, h: 9, d: 2, color: 0x00FF00 },
-            { zone: 'B', x: -27, y: 6, z: 16, w: 20, h: 9, d: 2, color: 0x00FF00 },
-            { zone: 'B', x: -27, y: 6, z: 8, w: 20, h: 9, d: 2, color: 0x00FF00 },
-            { zone: 'B', x: -27, y: 6, z: 4, w: 20, h: 9, d: 2, color: 0x00FF00 },
-            { zone: 'B', x: -27, y: 6, z: -4, w: 20, h: 9, d: 2, color: 0x00FF00 },
-            { zone: 'B', x: -27, y: 6, z: -6, w: 20, h: 9, d: 2, color: 0x00FF00 },
-            { zone: 'B', x: -27, y: 6, z: -13, w: 20, h: 9, d: 2, color: 0x00FF00 },
-            { zone: 'B', x: -27, y: 6, z: -17, w: 20, h: 9, d: 2, color: 0x00FF00 },
-            { zone: 'B', x: -27, y: 6, z: -25, w: 20, h: 9, d: 2, color: 0x00FF00 }
+            { zone: 'A', sections: '1',shelves: '1',x: -27, y: 6, z: 67, w: 20, h: 9, d: 2, color: 0x00FF00 },
+            { zone: 'A', sections: '2',shelves: '2',x: -27, y: 6, z: 59, w: 20, h: 9, d: 2, color: 0x00FF00 },
+            { zone: 'A', sections: '2',shelves: '3',x: -27, y: 6, z: 55.5, w: 20, h: 9, d: 2, color: 0x00FF00 },
+            { zone: 'A', sections: '3',shelves: '4',x: -27, y: 6, z: 48, w: 20, h: 9, d: 2, color: 0x00FF00 },
+            { zone: 'A', sections: '3',shelves: '5',x: -27, y: 6, z: 45, w: 20, h: 9, d: 2, color: 0x00FF00 },
+            { zone: 'A', sections: '4',shelves: '6',x: -27, y: 6, z: 37, w: 20, h: 9, d: 2, color: 0x00FF00 },
+            { zone: 'A', sections: '4',shelves: '7',x: -27, y: 6, z: 34, w: 20, h: 9, d: 2, color: 0x00FF00 },
+            { zone: 'A', sections: '5',shelves: '8',x: -27, y: 6, z: 26, w: 20, h: 9, d: 2, color: 0x00FF00 },
+            { zone: 'B', sections: '1',shelves: '1',x: -27, y: 6, z: 16, w: 20, h: 9, d: 2, color: 0x00FF00 },
+            { zone: 'B', sections: '2',shelves: '2',x: -27, y: 6, z: 8, w: 20, h: 9, d: 2, color: 0x00FF00 },
+            { zone: 'B', sections: '2',shelves: '3',x: -27, y: 6, z: 4, w: 20, h: 9, d: 2, color: 0x00FF00 },
+            { zone: 'B', sections: '3',shelves: '4',x: -27, y: 6, z: -4, w: 20, h: 9, d: 2, color: 0x00FF00 },
+            { zone: 'B', sections: '3',shelves: '5',x: -27, y: 6, z: -6, w: 20, h: 9, d: 2, color: 0x00FF00 },
+            { zone: 'B', sections: '4',shelves: '6',x: -27, y: 6, z: -13, w: 20, h: 9, d: 2, color: 0x00FF00 },
+            { zone: 'B', sections: '4',shelves: '7',x: -27, y: 6, z: -17, w: 20, h: 9, d: 2, color: 0x00FF00 },
+            { zone: 'B', sections: '5',shelves: '8',x: -27, y: 6, z: -25, w: 20, h: 9, d: 2, color: 0x00FF00 },
+            { zone: 'C', sections: '1',shelves: '1',x: -27, y: 6, z: -33, w: 20, h: 9, d: 2, color: 0x00FF00 },
+            { zone: 'C', sections: '2',shelves: '2',x: -27, y: 6, z: -41, w: 20, h: 9, d: 2, color: 0x00FF00 },
+            { zone: 'C', sections: '2',shelves: '3',x: -27, y: 6, z: -44, w: 20, h: 9, d: 2, color: 0x00FF00 },
+            { zone: 'C', sections: '3',shelves: '4',x: -27, y: 6, z: -53, w: 20, h: 9, d: 2, color: 0x00FF00 },
+            { zone: 'C', sections: '3',shelves: '5',x: -27, y: 6, z: -55, w: 20, h: 9, d: 2, color: 0x00FF00 },
+            { zone: 'C', sections: '4',shelves: '6',x: -27, y: 6, z: -63, w: 20, h: 9, d: 2, color: 0x00FF00 },
+            { zone: 'C', sections: '4',shelves: '7',x: -27, y: 6, z: -66, w: 20, h: 9, d: 2, color: 0x00FF00 },
+            { zone: 'C', sections: '5',shelves: '8',x: -27, y: 6, z: -73, w: 20, h: 9, d: 2, color: 0x00FF00 },
+            { zone: 'D', sections: '1',shelves: '1',x: 12, y: 6, z: -35, w: 20, h: 9, d: 2, color: 0x00FF00 },
+            { zone: 'D', sections: '2',shelves: '2',x: 12, y: 6, z: -42, w: 20, h: 9, d: 2, color: 0x00FF00 },
+            { zone: 'D', sections: '2',shelves: '3',x: 12, y: 6, z: -46, w: 20, h: 9, d: 2, color: 0x00FF00 },
+            { zone: 'D', sections: '3',shelves: '4',x: 12, y: 6, z: -54, w: 20, h: 9, d: 2, color: 0x00FF00 },
+            { zone: 'D', sections: '3',shelves: '5',x: 12, y: 6, z: -57, w: 20, h: 9, d: 2, color: 0x00FF00 },
+            { zone: 'D', sections: '4',shelves: '6',x: 12, y: 6, z: -64, w: 20, h: 9, d: 2, color: 0x00FF00 },
+            { zone: 'D', sections: '4',shelves: '7',x: 12, y: 6, z: -67, w: 20, h: 9, d: 2, color: 0x00FF00 },
+            { zone: 'D', sections: '5',shelves: '8',x: 12, y: 6, z: -74, w: 20, h: 9, d: 2, color: 0x00FF00 },
+            { zone: 'E', sections: '1',shelves: '1',x: 12, y: 6, z: 14, w: 20, h: 9, d: 2, color: 0x00FF00 },
+            { zone: 'E', sections: '2',shelves: '2',x: 12, y: 6, z: 7, w: 20, h: 9, d: 2, color: 0x00FF00 },
+            { zone: 'E', sections: '2',shelves: '3',x: 12, y: 6, z: 3, w: 20, h: 9, d: 2, color: 0x00FF00 },
+            { zone: 'E', sections: '3',shelves: '4',x: 12, y: 6, z: -4, w: 20, h: 9, d: 2, color: 0x00FF00 },
+            { zone: 'E', sections: '3',shelves: '5',x: 12, y: 6, z: -8, w: 20, h: 9, d: 2, color: 0x00FF00 },
+            { zone: 'E', sections: '4',shelves: '6',x: 12, y: 6, z: -15, w: 20, h: 9, d: 2, color: 0x00FF00 },
+            { zone: 'E', sections: '4',shelves: '7',x: 12, y: 6, z: -18, w: 20, h: 9, d: 2, color: 0x00FF00 },
+            { zone: 'E', sections: '1',shelves: '8',x: 12, y: 6, z: -25, w: 20, h: 9, d: 2, color: 0x00FF00 },
         ];
         
         shelves.forEach(box => {
@@ -224,16 +266,19 @@ zones.forEach((zone) => {
         // API for Python bridge
         window.mall3D = {
             addPin: (id, x, y, z, name) => {
-                const geometry = new THREE.SphereGeometry(0.3, 16, 16);
+                const geometry = new THREE.SphereGeometry(1.5, 16, 16);
                 const material = new THREE.MeshStandardMaterial({ 
-                    color: 0xff4444,
+                    color: 0xff0000,
                     emissive: 0xff0000,
-                    emissiveIntensity: 0.5
+                    emissiveIntensity: 0.8,
+                    metalness: 0.3,
+                    roughness: 0.4
                 });
                 const pin = new THREE.Mesh(geometry, material);
-                pin.position.set(x, y, z);
+                pin.position.set(x, y + 8, z);  // +8 to float above shelf
                 pin.userData = { id, name };
                 pins.add(pin);
+                console.log(`Pin added at (${x}, ${y + 8}, ${z})`);
                 return pin;
             },
             
@@ -282,6 +327,49 @@ zones.forEach((zone) => {
         };
 
         console.log('3D Viewer ready. API: window.mall3D');
+        
+        let lastPinCount = 0;
+        
+        // Auto-load pins from JSON file
+        async function loadPinsFromFile() {
+            try {
+                const response = await fetch('/public/pins.json?t=' + Date.now());
+                console.log('Fetch response:', response.status);
+                const data = await response.json();
+                console.log('Pins data:', data);
+                if (data.pins && data.pins.length > 0) {
+                    const pinsChanged = data.pins.length !== lastPinCount;
+                    
+                    console.log('Clearing old pins...');
+                    window.mall3D.clearPins();
+                    data.pins.forEach(pin => {
+                        console.log('Adding pin:', pin);
+                        window.mall3D.addPin(pin.id, pin.x, pin.y, pin.z, pin.name);
+                    });
+                    console.log(`✓ Loaded ${data.pins.length} pins`);
+                    
+                    // Focus camera only when pins change
+                    if (pinsChanged) {
+                        const firstPin = data.pins[0];
+                        window.mall3D.focusOn(firstPin.x, firstPin.y + 8, firstPin.z, 1500);
+                        lastPinCount = data.pins.length;
+                    }
+                    
+                    document.getElementById('info').innerHTML = 
+                        `<strong>AIหน้าฮ่าน 3D Navigator</strong><br>แสดง ${data.pins.length} สินค้า<br>` +
+                        `<small style="opacity: 0.8;">🖱️ ลากซ้าย: หมุน | Scroll: ซูม | ลากขวา: เลื่อน</small>`;
+                }
+            } catch (e) {
+                console.log('No pins data yet:', e.message);
+            }
+        }
+        
+        // Load pins on start
+        console.log('Starting pin loader...');
+        loadPinsFromFile();
+        
+        // Poll for updates every 2 seconds
+        setInterval(loadPinsFromFile, 2000);
         
     </script>
 </body>

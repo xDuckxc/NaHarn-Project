@@ -147,6 +147,7 @@ def parse_location_info(location_info: Any) -> dict[str, Any]:
 
 
 SHELF_POSITIONS = {
+    # Zone A
     ('A', '1', '1'): {'x': -27, 'y': 6, 'z': 67},
     ('A', '2', '2'): {'x': -27, 'y': 6, 'z': 59},
     ('A', '2', '3'): {'x': -27, 'y': 6, 'z': 55.5},
@@ -155,6 +156,7 @@ SHELF_POSITIONS = {
     ('A', '4', '6'): {'x': -27, 'y': 6, 'z': 37},
     ('A', '4', '7'): {'x': -27, 'y': 6, 'z': 34},
     ('A', '5', '8'): {'x': -27, 'y': 6, 'z': 26},
+    # Zone B
     ('B', '1', '1'): {'x': -27, 'y': 6, 'z': 16},
     ('B', '2', '2'): {'x': -27, 'y': 6, 'z': 8},
     ('B', '2', '3'): {'x': -27, 'y': 6, 'z': 4},
@@ -163,6 +165,7 @@ SHELF_POSITIONS = {
     ('B', '4', '6'): {'x': -27, 'y': 6, 'z': -13},
     ('B', '4', '7'): {'x': -27, 'y': 6, 'z': -17},
     ('B', '5', '8'): {'x': -27, 'y': 6, 'z': -25},
+    # Zone C
     ('C', '1', '1'): {'x': -27, 'y': 6, 'z': -33},
     ('C', '2', '2'): {'x': -27, 'y': 6, 'z': -41},
     ('C', '2', '3'): {'x': -27, 'y': 6, 'z': -44},
@@ -171,6 +174,7 @@ SHELF_POSITIONS = {
     ('C', '4', '6'): {'x': -27, 'y': 6, 'z': -63},
     ('C', '4', '7'): {'x': -27, 'y': 6, 'z': -66},
     ('C', '5', '8'): {'x': -27, 'y': 6, 'z': -73},
+    # Zone D
     ('D', '1', '1'): {'x': 12, 'y': 6, 'z': -35},
     ('D', '2', '2'): {'x': 12, 'y': 6, 'z': -42},
     ('D', '2', '3'): {'x': 12, 'y': 6, 'z': -46},
@@ -179,6 +183,7 @@ SHELF_POSITIONS = {
     ('D', '4', '6'): {'x': 12, 'y': 6, 'z': -64},
     ('D', '4', '7'): {'x': 12, 'y': 6, 'z': -67},
     ('D', '5', '8'): {'x': 12, 'y': 6, 'z': -74},
+    # Zone E
     ('E', '1', '1'): {'x': 12, 'y': 6, 'z': 14},
     ('E', '2', '2'): {'x': 12, 'y': 6, 'z': 7},
     ('E', '2', '3'): {'x': 12, 'y': 6, 'z': 3},
@@ -197,7 +202,15 @@ def get_3d_coordinates(location_info: Any) -> Optional[dict[str, float]]:
     shelf = str(info.get("shelf", "")).strip()
     
     key = (zone, section, shelf)
-    return SHELF_POSITIONS.get(key)
+    coords = SHELF_POSITIONS.get(key)
+    
+    # If exact match not found, try to find any shelf in the same zone+section
+    if not coords:
+        for (z, sec, sh), pos in SHELF_POSITIONS.items():
+            if z == zone and sec == section:
+                return pos
+    
+    return coords
 
 
 def format_location(location_info: Any) -> str:

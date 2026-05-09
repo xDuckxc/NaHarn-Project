@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 from typing import Any
 
@@ -88,24 +89,27 @@ async def on_message(message: cl.Message) -> None:
     if memory:
         memory.save_context({"input": message.content}, {"output": answer})
 
-    # Send 3D pins if products found
+    await cl.Message(content=answer).send()
+    
+    # Write pins data to JSON file for 3D viewer
     validated_results = result.get("validated_results", [])
     if validated_results:
-        pins_js = "window.mall3D?.clearPins();\n"
+        pins_data = []
         for product in validated_results:
             coords = product.get("coordinates_3d")
             if coords:
-                pid = product.get("id", 0)
-                name = product.get("name", "").replace("'", "\\'")
-                x, y, z = coords.get("x", 0), coords.get("y", 0), coords.get("z", 0)
-                pins_js += f"window.mall3D?.addPin({pid}, {x}, {y}, {z}, '{name}');\n"
+                pins_data.append({
+                    "id": product.get("id", 0),
+                    "name": product.get("name", ""),
+                    "x": coords.get("x", 0),
+                    "y": coords.get("y", 0),
+                    "z": coords.get("z", 0)
+                })
         
-        await cl.Message(
-            content=answer,
-            elements=[cl.Html(content=f"<script>{pins_js}</script>", display="inline")]
-        ).send()
-    else:
-        await cl.Message(content=answer).send()
+        # Write to public folder
+        pins_file = os.path.join(os.path.dirname(__file__), "public", "pins.json")
+        with open(pins_file, "w", encoding="utf-8") as f:
+            json.dump({"pins": pins_data}, f, ensure_ascii=False, indent=2)
 
 
 if __name__ == "__main__":
