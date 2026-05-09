@@ -9,8 +9,9 @@ from typing import Any, Iterable
 
 from dotenv import load_dotenv
 
-from graph_state import ALLOWED_CATEGORIES, normalize_category, parse_location_info
-from product_store import (
+from naharn.graph_state import ALLOWED_CATEGORIES, format_location, normalize_category, parse_location_info
+from naharn.paths import DATA_DIR, PROJECT_ROOT
+from naharn.product_store import (
     get_database_url,
     product_count,
     run_schema_sql as run_postgres_schema_sql,
@@ -19,7 +20,7 @@ from product_store import (
 )
 
 
-DEFAULT_CSV_PATH = "mall_products_500.csv"
+DEFAULT_CSV_PATH = str(DATA_DIR / "mall_products_500_with_3d.csv")
 DEFAULT_EMBEDDING_MODEL = "intfloat/multilingual-e5-large"
 DEFAULT_TABLE = "products"
 
@@ -37,7 +38,8 @@ create table if not exists products (
     embedding vector(1024) not null,
     price double precision not null check (price >= 0),
     stock_quantity integer not null check (stock_quantity >= 0),
-    location_info jsonb not null
+    location_info jsonb not null,
+    coordinates_3d jsonb
 );
 
 create index if not exists products_category_idx on products (category);
@@ -70,6 +72,7 @@ returns table (
     price double precision,
     stock_quantity integer,
     location_info jsonb,
+    coordinates_3d jsonb,
     similarity double precision
 )
 language sql
@@ -84,6 +87,7 @@ as $$
         p.price,
         p.stock_quantity,
         p.location_info,
+        p.coordinates_3d,
         1 - (p.embedding <=> query_embedding) as similarity
     from products p
     where
@@ -92,14 +96,14 @@ as $$
         and (max_price is null or p.price <= max_price)
         and (not in_stock_only or p.stock_quantity > 0)
     order by
+        p.embedding <=> query_embedding,
         case
             when keyword is not null and keyword <> '' and (
                 p.name ilike '%' || keyword || '%'
                 or p.brand ilike '%' || keyword || '%'
             ) then 0
             else 1
-        end,
-        p.embedding <=> query_embedding
+        end
     limit match_count;
 $$;
 """
@@ -108,7 +112,7 @@ $$;
 def get_supabase_client() -> Any:
     from supabase import create_client
 
-    load_dotenv()
+    load_dotenv(PROJECT_ROOT / ".env")
     url = os.getenv("SUPABASE_URL")
     key = os.getenv("SUPABASE_SERVICE_ROLE_KEY") or os.getenv("SUPABASE_ANON_KEY")
     if not url or not key:
@@ -124,10 +128,11 @@ def coerce_product_id(raw_id: str, row_number: int) -> int:
 
 
 def product_text_for_embedding(row: dict[str, Any]) -> str:
+    location_text = format_location(row.get("location_info", {}))
     return (
         f"passage: สินค้า {row['name']} แบรนด์ {row.get('brand') or '-'} "
         f"หมวด {row['category']} รายละเอียด {row.get('description') or ''} "
-        f"ราคา {row['price']} บาท"
+        f"ราคา {row['price']} บาท ตำแหน่ง {location_text}"
     )
 
 
@@ -151,6 +156,7 @@ def load_csv_rows(csv_path: Path) -> list[dict[str, Any]]:
         for row_number, row in enumerate(reader, start=1):
             category = normalize_category(row["category"])
             location = parse_location_info(row["location_info"])
+            coordinates_3d = parse_location_info(row.get("coordinates_3d", "{}"))
             rows.append(
                 {
                     "id": coerce_product_id(row.get("id", ""), row_number),
@@ -161,6 +167,7 @@ def load_csv_rows(csv_path: Path) -> list[dict[str, Any]]:
                     "price": float(row["price"]),
                     "stock_quantity": int(float(row["stock_quantity"])),
                     "location_info": location,
+                    "coordinates_3d": coordinates_3d,
                 }
             )
     return rows
@@ -210,7 +217,7 @@ def should_skip_load(table: str, expected_rows: int) -> bool:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Load mall products into pgvector.")
-    parser.add_argument("--csv", default=DEFAULT_CSV_PATH, help="Path to mall_products_500.csv.")
+    parser.add_argument("--csv", default=DEFAULT_CSV_PATH, help="Path to mall_products_500_with_3d.csv.")
     parser.add_argument("--table", default=os.getenv("PRODUCT_TABLE", DEFAULT_TABLE))
     parser.add_argument("--model", default=os.getenv("EMBEDDING_MODEL", DEFAULT_EMBEDDING_MODEL))
     parser.add_argument("--embed-batch-size", type=int, default=32)
@@ -220,7 +227,7 @@ def main() -> None:
     parser.add_argument("--skip-if-loaded", action="store_true", help="Skip embedding if the table already has the CSV row count.")
     args = parser.parse_args()
 
-    load_dotenv()
+    load_dotenv(PROJECT_ROOT / ".env")
 
     if args.print_sql:
         print(CREATE_SCHEMA_SQL)

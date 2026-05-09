@@ -64,9 +64,15 @@ tests/
 test/
 
 # Chainlit runtime files
-.chainlit/
+.chainlit/*
+!.chainlit/
+!.chainlit/config.toml
+.chainlit/translations/
 .chainlit.db
 chainlit.log
+logs/
+public/agent_logs.json
+public/pins.json
 
 # Docker and local runtime artifacts
 docker-compose.override.yml

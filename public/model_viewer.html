@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AIหน้าฮ่าน 3D Navigator</title>
+    <style>
+        body { margin: 0; overflow: hidden; font-family: 'Sarabun', sans-serif; }
+        #viewer { width: 100vw; height: 100vh; }
+        #info {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(0,0,0,0.7);
+            color: white;
+            padding: 10px;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+        .pin {
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            background: #ff4444;
+            border: 2px solid white;
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .pin:hover {
+            transform: translate(-50%, -50%) scale(1.3);
+            background: #ff6666;
+        }
+    </style>
+</head>
+<body>
+    <div id="viewer"></div>
+    <div id="info">
+        <strong>AIหน้าฮ่าน 3D Navigator</strong><br>
+        กำลังโหลดโมเดล...<br>
+        <small style="opacity: 0.8;">
+            🖱️ ลากซ้าย: หมุน | Scroll: ซูม | ลากขวา: เลื่อน
+        </small>
+    </div>
+
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "/public/three/three.module.js",
+            "three/addons/": "/public/three/addons/"
+        }
+    }
+    </script>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+        import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+
+        const infoEl = document.getElementById('info');
+
+        try {
+
+        // Scene setup
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0xf0f0f0);
+        // scene.fog = new THREE.Fog(0xf0f0f0, 50, 200);
+
+        const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.set(50, 30, 80);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.shadowMap.enabled = true;
+        document.getElementById('viewer').appendChild(renderer.domElement);
+
+        const controls = new OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
+        controls.maxPolarAngle = Math.PI / 2;
+
+        // Lighting
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+        scene.add(ambientLight);
+
+        const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+        dirLight.position.set(50, 50, 50);
+        dirLight.castShadow = true;
+        scene.add(dirLight);
+
+        // Grid helper
+        const gridHelper = new THREE.GridHelper(100, 20, 0x888888, 0xcccccc);
+        scene.add(gridHelper);
+
+        // Zone bounding boxes (dev mode)
+        const zoneBoxes = [
+            
+            { zone: 'A', color: 0xFF6B6B, x: -27, y: 6, z: 46, w: 23, h: 12, d: 43 },
+            { zone: 'B', color: 0x4ECDC4, x: -27, y: 6, z: -4.5, w: 23, h: 12, d: 43 },
+            { zone: 'C', color: 0x45B7D1, x: -27, y: 6, z: -53, w: 23, h: 12, d: 43 },
+            { zone: 'D', color: 0xFFA07A, x: 12, y: 6, z: -53, w: 23, h: 12, d: 43 },
+            { zone: 'E', color: 0x98D8C8, x: 12, y: 6, z: -4.5, w: 23, h: 12, d: 43 }
+        ]
+
+        zoneBoxes.forEach(box => {
+            const geometry = new THREE.BoxGeometry(box.w, box.h, box.d);
+            const edges = new THREE.EdgesGeometry(geometry);
+            const material = new THREE.LineBasicMaterial({ color: box.color, linewidth: 2 });
+            const wireframe = new THREE.LineSegments(edges, material);
+            wireframe.position.set(box.x, box.y, box.z);
+            scene.add(wireframe);
+        });
+        
+        // Section boxes (สีเขียว)
+        const sections = [
+            { zone: 'A', sections: '1', x: -27, y: 6, z: 68, w: 23, h: 12, d: 4 },
+            { zone: 'A', sections: '2', x: -27, y: 6, z: 57, w: 23, h: 12, d: 4 },
+            { zone: 'A', sections: '3',x: -27, y: 6, z: 47, w: 23, h: 12, d: 4 },
+            { zone: 'A', sections: '4',x: -27, y: 6, z: 35, w: 23, h: 12, d: 4 },
+            { zone: 'A', sections: '5',x: -27, y: 6, z: 25, w: 23, h: 12, d: 4 },
+            { zone: 'B', sections: '1',x: -27, y: 6, z: 15, w: 23, h: 12, d: 4 },
+            { zone: 'B', sections: '2',x: -27, y: 6, z: 5, w: 23, h: 12, d: 4 },
+            { zone: 'B', sections: '3',x: -27, y: 6, z: -5, w: 23, h: 12, d: 4 },
+            { zone: 'B', sections: '4', x: -27, y: 6, z: -15, w: 23, h: 12, d: 4 },
+            { zone: 'B', sections: '5',x: -27, y: 6, z: -25, w: 23, h: 12, d: 4 },
+            { zone: 'C', sections: '1',x: -27, y: 6, z: -33, w: 23, h: 12, d: 4 },
+            { zone: 'C', sections: '2',x: -27, y: 6, z: -43, w: 23, h: 12, d: 4 },
+            { zone: 'C', sections: '3',x: -27, y: 6, z: -54, w: 23, h: 12, d: 4 },
+            { zone: 'C', sections: '4', x: -27, y: 6, z: -64, w: 23, h: 12, d: 4 },
+            { zone: 'C', sections: '5',x: -27, y: 6, z: -74, w: 23, h: 12, d: 4 },
+            { zone: 'D', sections: '1',x: 12, y: 6, z: -34, w: 23, h: 12, d: 4 },
+            { zone: 'D', sections: '2',x: 12, y: 6, z: -44, w: 23, h: 12, d: 4 },
+            { zone: 'D', sections: '3',x: 12, y: 6, z: -56, w: 23, h: 12, d: 4 },
+            { zone: 'D', sections: '4', x: 12, y: 6, z: -65, w: 23, h: 12, d: 4 },
+            { zone: 'D', sections: '5',x: 12, y: 6, z: -74, w: 23, h: 12, d: 4 },
+            { zone: 'E', sections: '1',x: 12, y: 6, z: 15, w: 23, h: 12, d: 4 },
+            { zone: 'E', sections: '2',x: 12, y: 6, z: 5, w: 23, h: 12, d: 4 },
+            { zone: 'E', sections: '3',x: 12, y: 6, z: -6, w: 23, h: 12, d: 4 },
+            { zone: 'E', sections: '4', x: 12, y: 6, z: -16, w: 23, h: 12, d: 4 },
+            { zone: 'E', sections: '5',x: 12, y: 6, z: -25, w: 23, h: 12, d: 4 }
+        ];
+        
+        sections.forEach(box => {
+            const geometry = new THREE.BoxGeometry(box.w, box.h, box.d);
+            const edges = new THREE.EdgesGeometry(geometry);
+            const material = new THREE.LineBasicMaterial({ color: 0xFFFF00, linewidth: 1 });
+            const wireframe = new THREE.LineSegments(edges, material);
+            wireframe.position.set(box.x, box.y, box.z);
+            scene.add(wireframe);
+        });
+        
+        // Shelf boxes (สีเขียว/ฟ้า)
+        const shelves = [
+            { zone: 'A', sections: '1',shelves: '1',x: -27, y: 6, z: 67, w: 20, h: 9, d: 2, color: 0x00FF00 },
+            { zone: 'A', sections: '2',shelves: '2',x: -27, y: 6, z: 59, w: 20, h: 9, d: 2, color: 0x00FF00 },
+            { zone: 'A', sections: '2',shelves: '3',x: -27, y: 6, z: 55.5, w: 20, h: 9, d: 2, color: 0x00FF00 },
+            { zone: 'A', sections: '3',shelves: '4',x: -27, y: 6, z: 48, w: 20, h: 9, d: 2, color: 0x00FF00 },
+            { zone: 'A', sections: '3',shelves: '5',x: -27, y: 6, z: 45, w: 20, h: 9, d: 2, color: 0x00FF00 },
+            { zone: 'A', sections: '4',shelves: '6',x: -27, y: 6, z: 37, w: 20, h: 9, d: 2, color: 0x00FF00 },
+            { zone: 'A', sections: '4',shelves: '7',x: -27, y: 6, z: 34, w: 20, h: 9, d: 2, color: 0x00FF00 },
+            { zone: 'A', sections: '5',shelves: '8',x: -27, y: 6, z: 26, w: 20, h: 9, d: 2, color: 0x00FF00 },
+            { zone: 'B', sections: '1',shelves: '1',x: -27, y: 6, z: 16, w: 20, h: 9, d: 2, color: 0x00FF00 },
+            { zone: 'B', sections: '2',shelves: '2',x: -27, y: 6, z: 8, w: 20, h: 9, d: 2, color: 0x00FF00 },
+            { zone: 'B', sections: '2',shelves: '3',x: -27, y: 6, z: 4, w: 20, h: 9, d: 2, color: 0x00FF00 },
+            { zone: 'B', sections: '3',shelves: '4',x: -27, y: 6, z: -4, w: 20, h: 9, d: 2, color: 0x00FF00 },
+            { zone: 'B', sections: '3',shelves: '5',x: -27, y: 6, z: -6, w: 20, h: 9, d: 2, color: 0x00FF00 },
+            { zone: 'B', sections: '4',shelves: '6',x: -27, y: 6, z: -13, w: 20, h: 9, d: 2, color: 0x00FF00 },
+            { zone: 'B', sections: '4',shelves: '7',x: -27, y: 6, z: -17, w: 20, h: 9, d: 2, color: 0x00FF00 },
+            { zone: 'B', sections: '5',shelves: '8',x: -27, y: 6, z: -25, w: 20, h: 9, d: 2, color: 0x00FF00 },
+            { zone: 'C', sections: '1',shelves: '1',x: -27, y: 6, z: -33, w: 20, h: 9, d: 2, color: 0x00FF00 },
+            { zone: 'C', sections: '2',shelves: '2',x: -27, y: 6, z: -41, w: 20, h: 9, d: 2, color: 0x00FF00 },
+            { zone: 'C', sections: '2',shelves: '3',x: -27, y: 6, z: -44, w: 20, h: 9, d: 2, color: 0x00FF00 },
+            { zone: 'C', sections: '3',shelves: '4',x: -27, y: 6, z: -53, w: 20, h: 9, d: 2, color: 0x00FF00 },
+            { zone: 'C', sections: '3',shelves: '5',x: -27, y: 6, z: -55, w: 20, h: 9, d: 2, color: 0x00FF00 },
+            { zone: 'C', sections: '4',shelves: '6',x: -27, y: 6, z: -63, w: 20, h: 9, d: 2, color: 0x00FF00 },
+            { zone: 'C', sections: '4',shelves: '7',x: -27, y: 6, z: -66, w: 20, h: 9, d: 2, color: 0x00FF00 },
+            { zone: 'C', sections: '5',shelves: '8',x: -27, y: 6, z: -73, w: 20, h: 9, d: 2, color: 0x00FF00 },
+            { zone: 'D', sections: '1',shelves: '1',x: 12, y: 6, z: -35, w: 20, h: 9, d: 2, color: 0x00FF00 },
+            { zone: 'D', sections: '2',shelves: '2',x: 12, y: 6, z: -42, w: 20, h: 9, d: 2, color: 0x00FF00 },
+            { zone: 'D', sections: '2',shelves: '3',x: 12, y: 6, z: -46, w: 20, h: 9, d: 2, color: 0x00FF00 },
+            { zone: 'D', sections: '3',shelves: '4',x: 12, y: 6, z: -54, w: 20, h: 9, d: 2, color: 0x00FF00 },
+            { zone: 'D', sections: '3',shelves: '5',x: 12, y: 6, z: -57, w: 20, h: 9, d: 2, color: 0x00FF00 },
+            { zone: 'D', sections: '4',shelves: '6',x: 12, y: 6, z: -64, w: 20, h: 9, d: 2, color: 0x00FF00 },
+            { zone: 'D', sections: '4',shelves: '7',x: 12, y: 6, z: -67, w: 20, h: 9, d: 2, color: 0x00FF00 },
+            { zone: 'D', sections: '5',shelves: '8',x: 12, y: 6, z: -74, w: 20, h: 9, d: 2, color: 0x00FF00 },
+            { zone: 'E', sections: '1',shelves: '1',x: 12, y: 6, z: 14, w: 20, h: 9, d: 2, color: 0x00FF00 },
+            { zone: 'E', sections: '2',shelves: '2',x: 12, y: 6, z: 7, w: 20, h: 9, d: 2, color: 0x00FF00 },
+            { zone: 'E', sections: '2',shelves: '3',x: 12, y: 6, z: 3, w: 20, h: 9, d: 2, color: 0x00FF00 },
+            { zone: 'E', sections: '3',shelves: '4',x: 12, y: 6, z: -4, w: 20, h: 9, d: 2, color: 0x00FF00 },
+            { zone: 'E', sections: '3',shelves: '5',x: 12, y: 6, z: -8, w: 20, h: 9, d: 2, color: 0x00FF00 },
+            { zone: 'E', sections: '4',shelves: '6',x: 12, y: 6, z: -15, w: 20, h: 9, d: 2, color: 0x00FF00 },
+            { zone: 'E', sections: '4',shelves: '7',x: 12, y: 6, z: -18, w: 20, h: 9, d: 2, color: 0x00FF00 },
+            { zone: 'E', sections: '1',shelves: '8',x: 12, y: 6, z: -25, w: 20, h: 9, d: 2, color: 0x00FF00 },
+        ];
+        
+        shelves.forEach(box => {
+            const geometry = new THREE.BoxGeometry(box.w, box.h, box.d);
+            const edges = new THREE.EdgesGeometry(geometry);
+            const material = new THREE.LineBasicMaterial({ color: box.color, linewidth: 1 });
+            const wireframe = new THREE.LineSegments(edges, material);
+            wireframe.position.set(box.x, box.y, box.z);
+            scene.add(wireframe);
+        });
+
+        // Section boxes (สีเทา)
+        // Zone labels
+        const zones = [
+    { name: 'A', x: -27, y: 15, z: 46 },
+    { name: 'B', x: -27, y: 15, z: -4.5 },
+    { name: 'C', x: -27, y: 15, z: -53 },
+    { name: 'D', x: 12, y: 15, z: -53 },
+    { name: 'E', x: 12, y: 15, z: -4.5 }
+];
+
+zones.forEach((zone) => {
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+
+    canvas.width = 256;
+    canvas.height = 128;
+
+    ctx.fillStyle = '#ff4d00';
+    ctx.font = 'bold 80px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillText(`Zone ${zone.name}`, 128, 90);
+
+    const texture = new THREE.CanvasTexture(canvas);
+    const material = new THREE.SpriteMaterial({ map: texture });
+
+    const sprite = new THREE.Sprite(material);
+
+    // Manual position
+    sprite.position.set(zone.x, zone.y, zone.z);
+
+    sprite.scale.set(8, 4, 1);
+
+    scene.add(sprite);
+});
+
+        // Product pins
+        const pins = new THREE.Group();
+        scene.add(pins);
+        
+        // Path line
+        const pathLine = new THREE.Group();
+        scene.add(pathLine);
+        
+        // Entrance point (center bottom)
+        // แก้พิกัดนี้เพื่อเปลี่ยนตำแหน่งทางเข้า
+        const ENTRANCE = { x: 40, y: 0, z: 65 };
+
+        // Load GLB model
+        const loader = new GLTFLoader();
+        loader.load('/public/Naharn_3D.glb', (gltf) => {
+            scene.add(gltf.scene);
+            document.getElementById('info').innerHTML = '<strong>AIหน้าฮ่าน 3D Navigator</strong><br>พร้อมใช้งาน';
+        }, undefined, (error) => {
+            console.error('Error loading model:', error);
+            document.getElementById('info').innerHTML = '<strong>Error</strong><br>ไม่สามารถโหลดโมเดลได้';
+        });
+
+        // Animation loop
+        function animate() {
+            requestAnimationFrame(animate);
+            controls.update();
+            renderer.render(scene, camera);
+        }
+        animate();
+
+        // Window resize
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        // API for Python bridge
+        window.mall3D = {
+            addPin: (id, x, y, z, name) => {
+                const geometry = new THREE.SphereGeometry(1.5, 16, 16);
+                const material = new THREE.MeshStandardMaterial({ 
+                    color: 0xff0000,
+                    emissive: 0xff0000,
+                    emissiveIntensity: 0.8,
+                    metalness: 0.3,
+                    roughness: 0.4
+                });
+                const pin = new THREE.Mesh(geometry, material);
+                pin.position.set(x, y + 8, z);  // +8 to float above shelf
+                pin.userData = { id, name };
+                pins.add(pin);
+                console.log(`Pin added at (${x}, ${y + 8}, ${z})`);
+                return pin;
+            },
+            
+            clearPins: () => {
+                while(pins.children.length > 0) {
+                    pins.remove(pins.children[0]);
+                }
+            },
+            
+            drawPath: (points) => {
+                // Clear old path
+                while(pathLine.children.length > 0) {
+                    pathLine.remove(pathLine.children[0]);
+                }
+                
+                if (!points || points.length < 2) return;
+                
+                // Create line geometry
+                const geometry = new THREE.BufferGeometry();
+                const positions = [];
+                
+                points.forEach(p => {
+                    positions.push(p.x, p.y, p.z);
+                });
+                
+                geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+                
+                const material = new THREE.LineBasicMaterial({ 
+                    color: 0x00ff00,
+                    linewidth: 3
+                });
+                
+                const line = new THREE.Line(geometry, material);
+                pathLine.add(line);
+                
+                console.log(`Path drawn with ${points.length} points`);
+            },
+            
+            clearPath: () => {
+                while(pathLine.children.length > 0) {
+                    pathLine.remove(pathLine.children[0]);
+                }
+            },
+            
+            focusOn: (x, y, z, duration = 1000) => {
+                const start = {
+                    x: camera.position.x,
+                    y: camera.position.y,
+                    z: camera.position.z,
+                    tx: controls.target.x,
+                    ty: controls.target.y,
+                    tz: controls.target.z
+                };
+                const end = {
+                    x: x + 10,
+                    y: y + 10,
+                    z: z + 10,
+                    tx: x,
+                    ty: y,
+                    tz: z
+                };
+                
+                const startTime = Date.now();
+                function animateCamera() {
+                    const elapsed = Date.now() - startTime;
+                    const t = Math.min(elapsed / duration, 1);
+                    const eased = t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
+                    
+                    camera.position.x = start.x + (end.x - start.x) * eased;
+                    camera.position.y = start.y + (end.y - start.y) * eased;
+                    camera.position.z = start.z + (end.z - start.z) * eased;
+                    
+                    controls.target.x = start.tx + (end.tx - start.tx) * eased;
+                    controls.target.y = start.ty + (end.ty - start.ty) * eased;
+                    controls.target.z = start.tz + (end.tz - start.tz) * eased;
+                    
+                    if (t < 1) requestAnimationFrame(animateCamera);
+                }
+                animateCamera();
+            }
+        };
+
+        console.log('3D Viewer ready. API: window.mall3D');
+        
+        let lastPinSignature = '';
+        
+        // Auto-load pins from JSON file
+        async function loadPinsFromFile() {
+            try {
+                const response = await fetch('/public/pins.json?t=' + Date.now());
+                console.log('Fetch response:', response.status);
+                const data = await response.json();
+                console.log('Pins data:', data);
+                const rawPins = Array.isArray(data.pins) ? data.pins : [];
+                const pinSignature = JSON.stringify(rawPins.map((pin) => ({
+                    id: pin.id,
+                    x: pin.x,
+                    y: pin.y,
+                    z: pin.z,
+                    zone: pin.zone,
+                    section: pin.section,
+                    shelf: pin.shelf
+                })));
+                const pinsChanged = pinSignature !== lastPinSignature;
+                if (!pinsChanged) return;
+
+                console.log('Clearing old pins...');
+                window.mall3D.clearPins();
+                window.mall3D.clearPath();
+                lastPinSignature = pinSignature;
+
+                if (rawPins.length === 0) {
+                    document.getElementById('info').innerHTML =
+                        `<strong>AIหน้าฮ่าน 3D Navigator</strong><br>ยังไม่มีสินค้าให้แสดง<br>` +
+                        `<small style="opacity: 0.8;">ค้นหาสินค้าหรือพิมพ์ "แสดงแผนที่" ในแชต</small>`;
+                    return;
+                }
+
+                // Sort pins by zone, section, shelf, then z position.
+                const sortedPins = [...rawPins].sort((a, b) => {
+                    const zoneOrder = { A: 1, B: 2, C: 3, D: 4, E: 5 };
+                    const zoneA = a.zone || a.name?.match(/โซน ([A-E])/)?.[1] || 'A';
+                    const zoneB = b.zone || b.name?.match(/โซน ([A-E])/)?.[1] || 'A';
+                    const zoneDiff = (zoneOrder[zoneA] || 99) - (zoneOrder[zoneB] || 99);
+                    if (zoneDiff !== 0) return zoneDiff;
+                    const sectionDiff = Number(a.section || 0) - Number(b.section || 0);
+                    if (sectionDiff !== 0) return sectionDiff;
+                    const shelfDiff = Number(a.shelf || 0) - Number(b.shelf || 0);
+                    if (shelfDiff !== 0) return shelfDiff;
+                    return b.z - a.z;
+                });
+
+                sortedPins.forEach(pin => {
+                    console.log('Adding pin:', pin);
+                    window.mall3D.addPin(pin.id, pin.x, pin.y, pin.z, pin.label || pin.name);
+                });
+                console.log(`✓ Loaded ${rawPins.length} pins`);
+
+                // Draw path from entrance through all pins.
+                const pathPoints = [ENTRANCE];
+                sortedPins.forEach(pin => {
+                    pathPoints.push({ x: pin.x, y: pin.y + 8, z: pin.z });
+                });
+                window.mall3D.drawPath(pathPoints);
+
+                const firstPin = sortedPins[0];
+                window.mall3D.focusOn(firstPin.x, firstPin.y + 8, firstPin.z, 1500);
+
+                document.getElementById('info').innerHTML =
+                    `<strong>AIหน้าฮ่าน 3D Navigator</strong><br>แสดง ${rawPins.length} สินค้า<br>` +
+                    `<small style="opacity: 0.8;">🖱️ ลากซ้าย: หมุน | Scroll: ซูม | ลากขวา: เลื่อน</small>`;
+            } catch (e) {
+                console.log('No pins data yet:', e.message);
+            }
+        }
+        
+        // Load pins on start
+        console.log('Starting pin loader...');
+        loadPinsFromFile();
+        
+        // Poll for updates every 2 seconds
+        setInterval(loadPinsFromFile, 2000);
+
+        } catch (error) {
+            console.error('3D Viewer failed to start:', error);
+            infoEl.innerHTML = '<strong>Error</strong><br>ไม่สามารถเปิด 3D Viewer ได้<br><small>ตรวจสอบว่า Brave เปิด WebGL/graphics acceleration อยู่</small>';
+        }
+        
+    </script>
+</body>
+</html>

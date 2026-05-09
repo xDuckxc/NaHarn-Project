@@ -1,0 +1,885 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agent Logs</title>
+    <style>
+        :root {
+            color-scheme: light;
+            --bg: #f6f8fb;
+            --panel: #ffffff;
+            --panel-subtle: #f8fafc;
+            --text: #1f2a37;
+            --muted: #607086;
+            --line: #d7e0ea;
+            --line-strong: #bdcbd9;
+            --accent: #0f766e;
+            --warning: #b7791f;
+            --error: #c2415a;
+            --info: #2563eb;
+            --shadow: 0 8px 22px rgba(31, 42, 55, 0.08);
+            --radius: 8px;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            background: var(--bg);
+            color: var(--text);
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            font-size: 14px;
+        }
+
+        header {
+            border-bottom: 1px solid var(--line);
+            background: var(--panel);
+        }
+
+        .shell {
+            width: min(100%, 1480px);
+            margin: 0 auto;
+            padding-inline: 20px;
+        }
+
+        .header-inner {
+            padding-block: 14px 12px;
+        }
+
+        h1 {
+            margin: 0;
+            font-size: 20px;
+            font-weight: 700;
+            letter-spacing: 0;
+        }
+
+        .subtitle {
+            margin-top: 4px;
+            color: var(--muted);
+            font-size: 13px;
+        }
+
+        .toolbar {
+            border-bottom: 1px solid var(--line);
+            background: rgba(246, 248, 251, 0.94);
+            position: sticky;
+            top: 0;
+            z-index: 2;
+        }
+
+        .toolbar-inner {
+            display: grid;
+            grid-template-columns: minmax(240px, 1fr) minmax(170px, 260px) 92px 118px 86px;
+            gap: 8px;
+            align-items: center;
+            padding-block: 10px;
+        }
+
+        input,
+        select,
+        button {
+            width: 100%;
+            height: 36px;
+            border: 1px solid var(--line);
+            border-radius: 6px;
+            background: var(--panel);
+            color: var(--text);
+            padding: 0 10px;
+            font: inherit;
+            font-size: 14px;
+            outline: none;
+        }
+
+        input:focus,
+        select:focus,
+        button:focus-visible {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.12);
+        }
+
+        button {
+            cursor: pointer;
+            background: #e6f3f1;
+            color: #164e46;
+            font-weight: 600;
+        }
+
+        button:hover {
+            border-color: var(--accent);
+            background: #d8ece9;
+        }
+
+        button:disabled {
+            cursor: wait;
+            opacity: 0.62;
+        }
+
+        .danger-button {
+            background: #fff1f2;
+            color: #9f1239;
+            border-color: #fecdd3;
+        }
+
+        .danger-button:hover,
+        .danger-button.confirming {
+            background: #ffe4e6;
+            border-color: #fb7185;
+        }
+
+        .toolbar-status {
+            grid-column: 1 / -1;
+            min-height: 18px;
+            color: var(--muted);
+            font-size: 12px;
+        }
+
+        .toolbar-status.error {
+            color: var(--error);
+        }
+
+        .toolbar-status.success {
+            color: var(--accent);
+        }
+
+        label {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 7px;
+            height: 36px;
+            color: var(--muted);
+            font-size: 14px;
+            white-space: nowrap;
+            border: 1px solid var(--line);
+            border-radius: 6px;
+            background: var(--panel);
+            padding: 0 10px;
+        }
+
+        label input {
+            width: 16px;
+            height: 16px;
+            padding: 0;
+        }
+
+        main {
+            padding-block: 14px 32px;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(5, minmax(112px, 1fr));
+            gap: 8px;
+            margin-bottom: 12px;
+            color: var(--muted);
+            font-size: 13px;
+        }
+
+        .stat {
+            border: 1px solid var(--line);
+            border-radius: var(--radius);
+            background: var(--panel);
+            padding: 9px 10px;
+            min-width: 0;
+        }
+
+        .stat-label {
+            display: block;
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 0.02em;
+            text-transform: uppercase;
+            color: #738197;
+        }
+
+        .stat-value {
+            display: block;
+            margin-top: 2px;
+            color: var(--text);
+            font-size: 15px;
+            font-weight: 700;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .runs {
+            display: grid;
+            gap: 12px;
+        }
+
+        .run {
+            border: 1px solid var(--line);
+            border-radius: var(--radius);
+            background: var(--panel);
+            overflow: hidden;
+            box-shadow: var(--shadow);
+        }
+
+        .run-header {
+            display: grid;
+            grid-template-columns: minmax(120px, max-content) 1fr max-content;
+            align-items: center;
+            gap: 12px;
+            padding: 10px 12px;
+            border-bottom: 1px solid var(--line);
+            background: #eef7f5;
+        }
+
+        .run-id {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+            font-size: 14px;
+            color: var(--accent);
+            font-weight: 700;
+            white-space: nowrap;
+        }
+
+        .run-meta {
+            color: var(--muted);
+            font-size: 13px;
+            min-width: 0;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .events {
+            display: grid;
+            gap: 0;
+        }
+
+        details {
+            border-bottom: 1px solid var(--line);
+        }
+
+        details:last-child {
+            border-bottom: 0;
+        }
+
+        summary {
+            cursor: pointer;
+            list-style: none;
+            display: grid;
+            grid-template-columns: 76px minmax(150px, 230px) minmax(280px, 1fr) 64px;
+            gap: 10px;
+            align-items: center;
+            min-height: 48px;
+            padding: 8px 12px;
+            background: var(--panel);
+        }
+
+        summary:hover {
+            background: var(--panel-subtle);
+        }
+
+        summary:focus-visible {
+            outline: 3px solid rgba(37, 99, 235, 0.18);
+            outline-offset: -3px;
+        }
+
+        summary::-webkit-details-marker {
+            display: none;
+        }
+
+        details[open] summary {
+            background: #f1f7fb;
+        }
+
+        .time,
+        .event,
+        .message,
+        .level {
+            min-width: 0;
+        }
+
+        .time {
+            color: var(--muted);
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+            font-size: 12px;
+        }
+
+        .event {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+            font-size: 12px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .message {
+            color: var(--text);
+            font-size: 14px;
+            line-height: 1.35;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        .level {
+            justify-self: end;
+            border-radius: 999px;
+            min-width: 52px;
+            padding: 3px 8px;
+            font-size: 12px;
+            font-weight: 700;
+            border: 1px solid var(--line);
+            color: var(--muted);
+            text-align: center;
+        }
+
+        .level.info {
+            color: var(--info);
+            background: #edf4ff;
+            border-color: #bfd3ff;
+        }
+
+        .level.warning {
+            color: var(--warning);
+            background: #fff3d8;
+            border-color: #f5d38a;
+        }
+
+        .level.error {
+            color: var(--error);
+            background: #ffeaf0;
+            border-color: #f5b8c6;
+        }
+
+        pre {
+            margin: 0;
+            padding: 12px;
+            border-top: 1px solid var(--line);
+            background: #fbfcfe;
+            color: #294052;
+            overflow: auto;
+            max-height: min(52vh, 420px);
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+            font-size: 12px;
+            line-height: 1.5;
+            tab-size: 2;
+        }
+
+        .empty {
+            color: var(--muted);
+            border: 1px dashed var(--line);
+            border-radius: var(--radius);
+            background: var(--panel);
+            padding: 28px 16px;
+            text-align: center;
+        }
+
+        @media (max-width: 980px) {
+            .toolbar-inner {
+                grid-template-columns: 1fr 180px 92px 118px 86px;
+            }
+
+            .stats {
+                grid-template-columns: repeat(3, minmax(100px, 1fr));
+            }
+        }
+
+        @media (max-width: 720px) {
+            .shell {
+                padding-inline: 12px;
+            }
+
+            .toolbar-inner {
+                grid-template-columns: 1fr;
+            }
+
+            .stats {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+
+            .run-header {
+                grid-template-columns: 1fr;
+                gap: 4px;
+            }
+
+            summary {
+                grid-template-columns: 72px 1fr 58px;
+                gap: 5px;
+                align-items: start;
+            }
+
+            .time {
+                grid-column: 1 / 3;
+            }
+
+            .event {
+                grid-column: 1 / 4;
+                white-space: normal;
+            }
+
+            .message {
+                grid-column: 1 / 4;
+                white-space: normal;
+            }
+
+            .level {
+                grid-column: 3;
+                grid-row: 1;
+                justify-self: end;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="shell header-inner">
+            <h1>Agent Logs</h1>
+            <div class="subtitle">Operational trace: steps, functions, tools, decisions, and output summaries.</div>
+        </div>
+    </header>
+
+    <section class="toolbar" aria-label="Log filters">
+        <div class="shell toolbar-inner">
+            <input id="search" type="search" placeholder="ค้น event, function, tool, message">
+            <select id="runFilter" aria-label="Filter by run id">
+                <option value="">ทุก run_id</option>
+            </select>
+            <button id="refreshButton" type="button">Refresh</button>
+            <button id="clearButton" class="danger-button" type="button">Clear logs</button>
+            <label><input id="autoRefresh" type="checkbox" checked> Auto</label>
+            <div id="toolbarStatus" class="toolbar-status" aria-live="polite"></div>
+        </div>
+    </section>
+
+    <main class="shell">
+        <div class="stats" id="stats"></div>
+        <section class="runs" id="runs"></section>
+    </main>
+
+    <script>
+        const state = {
+            logs: [],
+            timer: null,
+            openLogIds: new Set(),
+            runOptionsKey: '',
+            clearArmed: false,
+            clearTimer: null
+        };
+
+        const searchInput = document.getElementById('search');
+        const runFilter = document.getElementById('runFilter');
+        const refreshButton = document.getElementById('refreshButton');
+        const clearButton = document.getElementById('clearButton');
+        const autoRefresh = document.getElementById('autoRefresh');
+        const toolbarStatus = document.getElementById('toolbarStatus');
+        const runsEl = document.getElementById('runs');
+        const statsEl = document.getElementById('stats');
+
+        function escapeHtml(value) {
+            return String(value)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+
+        function formatTime(value) {
+            if (!value) return '-';
+            const date = new Date(value);
+            if (Number.isNaN(date.getTime())) return value;
+            return date.toLocaleTimeString('th-TH', { hour12: false });
+        }
+
+        function setToolbarStatus(message = '', tone = '') {
+            toolbarStatus.textContent = message;
+            toolbarStatus.className = `toolbar-status ${tone}`.trim();
+        }
+
+        function resetClearConfirmation() {
+            state.clearArmed = false;
+            if (state.clearTimer) {
+                clearTimeout(state.clearTimer);
+                state.clearTimer = null;
+            }
+            clearButton.textContent = 'Clear logs';
+            clearButton.classList.remove('confirming');
+        }
+
+        function compactText(value, maxLength = 120) {
+            if (value === undefined || value === null || value === '') return '';
+            const text = String(value).replace(/\s+/g, ' ').trim();
+            if (text.length <= maxLength) return text;
+            return text.slice(0, maxLength - 1).trimEnd() + '…';
+        }
+
+        function formatPercent(value) {
+            const number = Number(value);
+            if (Number.isNaN(number)) return '';
+            return `${Math.round(number * 100)}%`;
+        }
+
+        function formatRoute(route) {
+            const routes = {
+                search: 'ค้นหาสินค้า',
+                cart: 'จัดการรายการที่เลือก',
+                map: 'แสดงแผนที่',
+                general: 'ตอบทั่วไป',
+                direct: 'ตอบจากกฎความปลอดภัย'
+            };
+            return routes[route] || route || '-';
+        }
+
+        function formatTools(tools) {
+            if (!Array.isArray(tools) || !tools.length) return 'ไม่ต้องใช้ tool เพิ่ม';
+            return tools.join(', ');
+        }
+
+        function describeConstraints(constraints) {
+            if (!constraints || typeof constraints !== 'object') return '';
+            const parts = [];
+            if (constraints.category) parts.push(`หมวด ${constraints.category}`);
+            if (constraints.brand) parts.push(`แบรนด์ ${constraints.brand}`);
+            if (constraints.min_price !== undefined) parts.push(`ราคาอย่างน้อย ${constraints.min_price}`);
+            if (constraints.max_price !== undefined) parts.push(`ราคาไม่เกิน ${constraints.max_price}`);
+            if (constraints.in_stock_only) parts.push('ต้องมีสินค้าในสต็อก');
+            if (constraints.stock_status === 'out_of_stock') parts.push('ดูสินค้าหมดสต็อก');
+            if (constraints.broad_category_query) parts.push('เป็นคำถามกว้าง ต้องกระจายผลลัพธ์');
+            if (constraints.diversify_results) parts.push('กระจายชนิดสินค้า');
+            if (constraints.max_results) parts.push(`ต้องการ ${constraints.max_results} รายการ`);
+            if (constraints.location_zone) parts.push(`โซน ${constraints.location_zone}`);
+            if (constraints.location_section) parts.push(`ล็อค ${constraints.location_section}`);
+            if (constraints.location_side === 'left') parts.push('ฝั่งซ้ายมือ');
+            if (constraints.location_side === 'right') parts.push('ฝั่งขวามือ');
+            if (constraints.location_shelf) parts.push(`ชั้นวาง ${constraints.location_shelf}`);
+            if (constraints.location_shelf_level === '1') parts.push('ชั้นล่างสุด');
+            if (constraints.location_shelf_level === '2') parts.push('ระดับสายตา');
+            if (constraints.location_shelf_level === '3') parts.push('ชั้นบนสุด');
+            return parts.join(', ');
+        }
+
+        function describeRetrievalMode(mode, tool) {
+            if (!mode && tool === 'product_vector_search') {
+                return 'semantic search ด้วย vector similarity เป็นหลัก';
+            }
+            const modes = {
+                semantic_vector_similarity_primary: 'semantic search ด้วย vector similarity เป็นหลัก',
+                keyword_fallback: 'ค้นแบบ keyword สำรอง',
+                product_id_lookup: 'ค้นจาก ID สินค้าโดยตรง'
+            };
+            return modes[mode] || mode || 'วิธีค้นหาตาม backend';
+        }
+
+        function describeBackend(backend) {
+            const backends = {
+                postgres_pgvector: 'PostgreSQL/pgvector',
+                postgres: 'PostgreSQL',
+                supabase: 'Supabase',
+                supabase_rpc: 'Supabase RPC',
+                'supabase_rpc:match_products': 'Supabase RPC match_products',
+                supabase_table: 'Supabase table'
+            };
+            return backends[backend] || backend || 'ฐานข้อมูล';
+        }
+
+        function describeLog(log) {
+            const data = log.data && typeof log.data === 'object' ? log.data : {};
+            const constraintsText = describeConstraints(data.constraints || data.final_constraints);
+            const plan = data.plan || data.agent_plan || {};
+            const planRoute = formatRoute(plan.route || data.route);
+            const confidence = plan.confidence !== undefined ? ` ความมั่นใจ ${formatPercent(plan.confidence)}` : '';
+            const reason = compactText(plan.reason || data.decision_summary, 100);
+            const tool = data.tool || data.function || 'tool';
+            const resultCount = data.result_count ?? data.search_result_count ?? data.display_result_count ?? data.shaped_result_count;
+
+            switch (log.event) {
+                case 'message_received':
+                    return `รับข้อความจากผู้ใช้: "${compactText(data.input, 90)}" แล้วเริ่มสร้างรอบการทำงานของ Agent`;
+                case 'message_completed':
+                    return `Agent ทำงานครบทุกขั้นและเตรียมคำตอบสุดท้ายให้ผู้ใช้แล้ว เส้นทางที่ใช้คือ ${planRoute}`;
+                case 'message_failed':
+                    return `Agent ทำงานไม่สำเร็จในรอบนี้ ระบบบันทึก error ไว้เพื่อให้ตรวจสอบสาเหตุได้จากรายละเอียด`;
+                case 'chain_start': {
+                    const tags = Array.isArray(data.tags) && data.tags.length ? ` (${data.tags.join(', ')})` : '';
+                    return `เริ่มเรียก LangGraph chain${tags} เพื่อให้ Agent ส่ง state ผ่าน node ถัดไปอย่างเป็นลำดับ`;
+                }
+                case 'chain_end':
+                    return `LangGraph chain ทำงานเสร็จแล้ว และส่งผลลัพธ์กลับเข้าสู่ state เพื่อใช้ในขั้นตอนถัดไป`;
+                case 'chain_error':
+                    return `LangGraph chain เกิดข้อผิดพลาด ระบบบันทึกรายละเอียดไว้เพื่อไล่ดูสาเหตุ`;
+                case 'supervisor_start':
+                    return `Supervisor เริ่มอ่านเจตนาของผู้ใช้ ตรวจ rule พื้นฐาน และเตรียมเลือกว่าจะค้นหา เพิ่มสินค้า แสดงแผนที่ หรือตอบทั่วไป`;
+                case 'supervisor_decision':
+                    return `Supervisor เลือกเส้นทาง "${planRoute}"${confidence}${reason ? ` เพราะ ${reason}` : ''}`;
+                case 'llm_planner_start':
+                    return `DeepSeek เริ่มคิดแผนการทำงานของ Agent ว่าควรใช้ route ไหนและต้องเรียก tool อะไรบ้าง`;
+                case 'llm_planner_end': {
+                    const observed = plan.llm_reasoning_observed ? 'พบสัญญาณ reasoning จากโมเดล' : 'ไม่ได้รับ reasoning stream ชัดเจน';
+                    return `DeepSeek วางแผนเสร็จ เลือก "${formatRoute(plan.route)}" ใช้ tool: ${formatTools(plan.tools)}; ${observed}${confidence}`;
+                }
+                case 'llm_planner_skipped':
+                    return `ข้าม LLM planner ตามค่า config แล้วใช้แผน fallback จาก rule แทน`;
+                case 'llm_planner_error':
+                    return `LLM planner มีปัญหา ระบบจึง fallback ไปใช้แผน deterministic เพื่อให้ Agent ยังทำงานต่อได้`;
+                case 'search_filter_start':
+                    return `เริ่มขั้นตอนค้นหาและคัดกรองสินค้า อ่านคำถามล่าสุดพร้อม constraints เดิมก่อนเตรียมค้น DB`;
+                case 'constraint_extraction':
+                    return `ดึงเงื่อนไขแบบ rule จากข้อความผู้ใช้${constraintsText ? ` ได้: ${constraintsText}` : ''}`;
+                case 'llm_start':
+                    return `DeepSeek เริ่มตีความข้อความเพื่อแยกเงื่อนไขสินค้า เช่น หมวด ราคา จำนวน และสถานะสต็อก`;
+                case 'llm_end':
+                    return `DeepSeek ตีความเงื่อนไขเสร็จ${constraintsText ? ` ได้: ${constraintsText}` : ''}`;
+                case 'llm_error':
+                    return `ขั้นตอนตีความเงื่อนไขด้วย LLM ล้มเหลว ระบบใช้เงื่อนไขจาก rule ต่อแทน`;
+                case 'llm_skipped':
+                    return `ข้ามการตีความเงื่อนไขด้วย LLM ตามค่า config แล้วใช้ rule-based constraints`;
+                case 'constraint_merge':
+                    return `รวมเงื่อนไขจาก rule, LLM และบริบทเดิม แล้ว sanitize ให้พร้อมใช้ค้นหา${constraintsText ? `: ${constraintsText}` : ''}`;
+                case 'lookup_ids_detected':
+                    return `พบว่าผู้ใช้ระบุ ID สินค้าโดยตรง จึงเปลี่ยนเป็นโหมดดึงสินค้าตาม ID แทน semantic search`;
+                case 'search_plan':
+                    return `เลือกแผนค้นหาใน DB: ดึงสูงสุด ${data.top_k ?? '-'} รายการ${constraintsText ? ` โดยมีเงื่อนไข ${constraintsText}` : ''} เพื่อให้ semantic search มีพื้นที่หารายการใกล้เคียง`;
+                case 'tool_start':
+                    return `เริ่มใช้งาน tool "${tool}" เพื่อหาข้อมูลใน DB ด้วย ${describeRetrievalMode(data.retrieval_mode, data.tool)} ผ่าน ${describeBackend(data.backend)}`;
+                case 'tool_end':
+                    return `tool "${tool}" ทำงานเสร็จ พบ ${resultCount ?? 0} รายการจาก ${describeBackend(data.backend)} โดยใช้ ${describeRetrievalMode(data.retrieval_mode, data.tool)}`;
+                case 'tool_error':
+                    return `tool "${tool}" มีปัญหา ระบบบันทึก error แล้วจะลองใช้วิธีสำรองถ้ายังทำงานต่อได้`;
+                case 'search_error':
+                    return `ค้นหาสินค้าใน DB ไม่สำเร็จ ระบบบันทึก error ไว้เพื่อ debug`;
+                case 'search_filter_end':
+                    return `ค้นหาและคัดกรองสินค้าจาก DB เสร็จ ได้ผลลัพธ์ ${resultCount ?? 0} รายการก่อนส่งต่อไปจัดรูปคำตอบ`;
+                case 'navigation_start':
+                    return `เริ่มประมวลผลสินค้าที่ค้นเจอ เพื่อกรองสต็อก จัดตำแหน่ง และเตรียมตอบพร้อมข้อมูลนำทาง`;
+                case 'navigation_filters':
+                    return `ตรวจสต็อกและจัดรูปผลลัพธ์แล้ว เหลือ ${data.shaped_result_count ?? 0} รายการจาก ${data.input_count ?? 0} รายการ โดยยังรักษาผลจาก semantic search ไว้ก่อน rerank`;
+                case 'navigation_no_results':
+                    return `หลังกรองแล้วไม่พบสินค้าที่เหมาะสม จึงเตรียมข้อความแนะนำให้ผู้ใช้ลองค้นด้วยเงื่อนไขใหม่`;
+                case 'navigation_response':
+                    return `สร้างคำตอบภาษาไทยพร้อมตารางสินค้าและตำแหน่งแล้ว แสดง ${data.display_result_count ?? 0} รายการ${data.truncated ? ' และมีการตัดรายการให้พอดีหน้าจอ' : ''}`;
+                case 'cart_start':
+                    return `เริ่มจัดการรายการที่ผู้ใช้เลือก เช่น เพิ่ม ลบ หรือสรุปรายการสินค้า`;
+                case 'cart_parse':
+                    return `อ่านคำสั่งตะกร้าจากข้อความผู้ใช้ และแยก ID หรือเจตนาการเพิ่ม/ลบสินค้า`;
+                case 'cart_update':
+                    return `ตรวจสินค้าที่เกี่ยวข้องกับคำสั่งตะกร้า และเตรียมอัปเดตรายการที่เลือก`;
+                case 'cart_summary':
+                    return `จัดลำดับเส้นทางเดินสำหรับสินค้าที่เลือก เพื่อให้ผู้ใช้เดินหยิบของได้ง่ายขึ้น`;
+                case 'cart_response':
+                    return `สร้างคำตอบเกี่ยวกับรายการที่เลือก พร้อมข้อมูลตำแหน่งหรือเส้นทางถ้ามี`;
+                case 'map_start':
+                case 'show_map_start':
+                    return `เริ่มเตรียมข้อมูลสำหรับแสดงแผนที่จากรายการสินค้าปัจจุบัน`;
+                case 'map_response':
+                case 'show_map_response':
+                    return `สร้างคำตอบสำหรับเปิดแผนที่ พร้อม pin ของสินค้าที่เกี่ยวข้อง`;
+                case 'pins_written':
+                    return `บันทึก pin สินค้าจำนวน ${data.pin_count ?? 0} จุดลงไฟล์ เพื่อให้หน้า 3D Navigator แสดงตำแหน่งได้`;
+                case 'general_llm_start':
+                    return `DeepSeek เริ่มคิดคำตอบสำหรับคำถามทั่วไปที่ยังเกี่ยวข้องกับการซื้อของหรือการใช้งานผู้ช่วย`;
+                case 'general_llm_end':
+                    return `DeepSeek ตอบคำถามทั่วไปเสร็จแล้ว โดยยังคุมไม่ให้แต่งข้อมูลสินค้า ราคา สต็อก หรือพิกัดที่ไม่มีใน DB`;
+                case 'general_llm_error':
+                    return `การตอบคำถามทั่วไปด้วย LLM มีปัญหา ระบบจึงใช้คำตอบ fallback จาก rule แทน`;
+                case 'general_response':
+                    return data.used_llm
+                        ? `สร้างคำตอบทั่วไปจาก DeepSeek สำเร็จ โดยไม่ต้องค้น DB เพิ่ม`
+                        : `สร้างคำตอบทั่วไปจาก rule หรือ guardrail โดยไม่ต้องค้น DB เพิ่ม`;
+                case 'direct_response':
+                    return `ตอบกลับจาก rule โดยตรง เพราะคำถามเข้าเงื่อนไขที่ไม่ต้องให้ Agent ค้นหา`;
+                default:
+                    return log.message || log.event || 'บันทึกเหตุการณ์ของ Agent';
+            }
+        }
+
+        function searchableText(log) {
+            return [
+                log.timestamp,
+                log.level,
+                log.event,
+                log.run_id,
+                log.thread_id,
+                log.message,
+                describeLog(log),
+                JSON.stringify(log.data || {})
+            ].join(' ').toLowerCase();
+        }
+
+        function updateRunOptions(logs) {
+            const selected = runFilter.value;
+            const runIds = [...new Set(logs.map((log) => log.run_id).filter(Boolean))].reverse();
+            const optionsKey = runIds.join('|');
+            if (optionsKey === state.runOptionsKey) {
+                return;
+            }
+            state.runOptionsKey = optionsKey;
+            runFilter.innerHTML = '<option value="">ทุก run_id</option>' +
+                runIds.map((runId) => `<option value="${escapeHtml(runId)}">${escapeHtml(runId)}</option>`).join('');
+            if (runIds.includes(selected)) {
+                runFilter.value = selected;
+            }
+        }
+
+        function groupByRun(logs) {
+            const groups = new Map();
+            logs.forEach((log) => {
+                const key = log.run_id || 'no-run-id';
+                if (!groups.has(key)) groups.set(key, []);
+                groups.get(key).push(log);
+            });
+            return [...groups.entries()].reverse();
+        }
+
+        function syncOpenLogIds() {
+            document.querySelectorAll('details[data-log-id]').forEach((detail) => {
+                if (detail.open) {
+                    state.openLogIds.add(detail.dataset.logId);
+                } else {
+                    state.openLogIds.delete(detail.dataset.logId);
+                }
+            });
+        }
+
+        function bindDetailToggles() {
+            document.querySelectorAll('details[data-log-id]').forEach((detail) => {
+                detail.addEventListener('toggle', () => {
+                    if (detail.open) {
+                        state.openLogIds.add(detail.dataset.logId);
+                    } else {
+                        state.openLogIds.delete(detail.dataset.logId);
+                    }
+                });
+            });
+        }
+
+        function render() {
+            syncOpenLogIds();
+            const query = searchInput.value.trim().toLowerCase();
+            const selectedRun = runFilter.value;
+            let logs = state.logs;
+
+            if (selectedRun) {
+                logs = logs.filter((log) => log.run_id === selectedRun);
+            }
+
+            if (query) {
+                logs = logs.filter((log) => searchableText(log).includes(query));
+            }
+
+            const errors = logs.filter((log) => log.level === 'error').length;
+            const warnings = logs.filter((log) => log.level === 'warning').length;
+            statsEl.innerHTML = [
+                `<span class="stat"><span class="stat-label">Visible</span><span class="stat-value">${logs.length}</span></span>`,
+                `<span class="stat"><span class="stat-label">Total</span><span class="stat-value">${state.logs.length}</span></span>`,
+                `<span class="stat"><span class="stat-label">Errors</span><span class="stat-value">${errors}</span></span>`,
+                `<span class="stat"><span class="stat-label">Warnings</span><span class="stat-value">${warnings}</span></span>`,
+                `<span class="stat"><span class="stat-label">Updated</span><span class="stat-value">${new Date().toLocaleTimeString('th-TH', { hour12: false })}</span></span>`
+            ].join('');
+
+            if (!logs.length) {
+                runsEl.innerHTML = '<div class="empty">ยังไม่มี log ที่ตรงกับตัวกรอง</div>';
+                return;
+            }
+
+            runsEl.innerHTML = groupByRun(logs).map(([runId, runLogs]) => {
+                const first = runLogs[0];
+                const last = runLogs[runLogs.length - 1];
+                const events = runLogs.map((log) => {
+                    const data = JSON.stringify(log.data || {}, null, 2);
+                    const functionName = log.data && log.data.function ? ` · ${log.data.function}` : '';
+                    const toolName = log.data && log.data.tool ? ` · ${log.data.tool}` : '';
+                    const description = describeLog(log);
+                    const isOpen = state.openLogIds.has(log.id) ? ' open' : '';
+                    return `
+                        <details data-log-id="${escapeHtml(log.id)}"${isOpen}>
+                            <summary title="${escapeHtml(log.event + functionName + toolName + ' - ' + description)}">
+                                <span class="time">${escapeHtml(formatTime(log.timestamp))}</span>
+                                <span class="event">${escapeHtml(log.event + functionName + toolName)}</span>
+                                <span class="message">${escapeHtml(description)}</span>
+                                <span class="level ${escapeHtml(log.level || 'info')}">${escapeHtml(log.level || 'info')}</span>
+                            </summary>
+                            <pre>${escapeHtml(data)}</pre>
+                        </details>
+                    `;
+                }).join('');
+
+                return `
+                    <article class="run">
+                        <div class="run-header">
+                            <span class="run-id">${escapeHtml(runId)}</span>
+                            <span class="run-meta">${escapeHtml(formatTime(first.timestamp))} - ${escapeHtml(formatTime(last.timestamp))}</span>
+                            <span class="run-meta">${runLogs.length} events</span>
+                        </div>
+                        <div class="events">${events}</div>
+                    </article>
+                `;
+            }).join('');
+            bindDetailToggles();
+        }
+
+        async function clearLogs() {
+            clearButton.disabled = true;
+            setToolbarStatus('กำลังลบ log ทั้งหมด...', '');
+            try {
+                const response = await fetch('/agent-logs/clear', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    cache: 'no-store'
+                });
+                if (!response.ok) throw new Error('HTTP ' + response.status);
+                const payload = await response.json();
+                state.logs = Array.isArray(payload.logs) ? payload.logs : [];
+                state.openLogIds.clear();
+                state.runOptionsKey = '';
+                searchInput.value = '';
+                runFilter.innerHTML = '<option value="">ทุก run_id</option>';
+                runFilter.value = '';
+                render();
+                setToolbarStatus(`ลบ log ทั้งหมดแล้ว (${payload.deleted_entries ?? 0} รายการ)`, 'success');
+            } catch (error) {
+                setToolbarStatus(`ลบ log ไม่สำเร็จ: ${error.message}`, 'error');
+            } finally {
+                clearButton.disabled = false;
+                resetClearConfirmation();
+            }
+        }
+
+        async function loadLogs() {
+            try {
+                const response = await fetch('/public/agent_logs.json?t=' + Date.now(), { cache: 'no-store' });
+                if (!response.ok) throw new Error('HTTP ' + response.status);
+                const payload = await response.json();
+                state.logs = Array.isArray(payload.logs) ? payload.logs : [];
+                updateRunOptions(state.logs);
+                render();
+            } catch (error) {
+                runsEl.innerHTML = `<div class="empty">โหลด log ไม่ได้: ${escapeHtml(error.message)}</div>`;
+            }
+        }
+
+        refreshButton.addEventListener('click', loadLogs);
+        clearButton.addEventListener('click', () => {
+            if (!state.clearArmed) {
+                state.clearArmed = true;
+                clearButton.textContent = 'ยืนยันลบทั้งหมด';
+                clearButton.classList.add('confirming');
+                setToolbarStatus('กดปุ่มยืนยันอีกครั้งภายใน 6 วินาที เพื่อลบ log ทั้งหมดแบบถาวร', 'error');
+                state.clearTimer = setTimeout(() => {
+                    resetClearConfirmation();
+                    setToolbarStatus('', '');
+                }, 6000);
+                return;
+            }
+            clearLogs();
+        });
+        searchInput.addEventListener('input', render);
+        runFilter.addEventListener('change', render);
+        autoRefresh.addEventListener('change', () => {
+            if (state.timer) clearInterval(state.timer);
+            state.timer = autoRefresh.checked ? setInterval(loadLogs, 2000) : null;
+        });
+
+        loadLogs();
+        state.timer = setInterval(loadLogs, 2000);
+    </script>
+</body>
+</html>

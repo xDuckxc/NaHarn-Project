@@ -7,8 +7,6 @@ services:
       POSTGRES_DB: postgres
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
-    ports:
-      - "5432:5432"
     volumes:
       - pg-data:/var/lib/postgresql/data
     healthcheck:
@@ -49,10 +47,14 @@ services:
       DEEPSEEK_MODEL: ${DEEPSEEK_MODEL:-deepseek-v4-pro}
       DEEPSEEK_REASONING_EFFORT: ${DEEPSEEK_REASONING_EFFORT:-high}
       DEEPSEEK_MAX_TOKENS: ${DEEPSEEK_MAX_TOKENS:-2048}
+      USE_LLM_PLANNER: ${USE_LLM_PLANNER:-true}
+      USE_LLM_CONSTRAINTS: ${USE_LLM_CONSTRAINTS:-true}
+      USE_LLM_GENERAL: ${USE_LLM_GENERAL:-true}
       PRODUCT_BACKEND: ${PRODUCT_BACKEND:-postgres}
       PRODUCT_DATABASE_URL: ${PRODUCT_DATABASE_URL:-postgresql://postgres:postgres@db:5432/postgres}
       DATABASE_URL: ""
       APP_AUTO_LOAD_DB: ${APP_AUTO_LOAD_DB:-true}
+      PRODUCT_CSV: ${PRODUCT_CSV:-data/mall_products_500_with_3d.csv}
       EMBEDDING_MODEL: ${EMBEDDING_MODEL:-intfloat/multilingual-e5-large}
       PRODUCT_TABLE: ${PRODUCT_TABLE:-products}
       TOP_K_PRODUCTS: ${TOP_K_PRODUCTS:-8}

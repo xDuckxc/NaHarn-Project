@@ -5,7 +5,12 @@ env
 __pycache__
 *.pyc
 .env
-.chainlit
+.chainlit/translations
+.chainlit.db
+chainlit.log
+logs
+public/agent_logs.json
+public/pins.json
 node_modules
 hf-cache
 .cache

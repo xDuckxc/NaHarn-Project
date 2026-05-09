@@ -75,6 +75,7 @@ class Product(TypedDict, total=False):
     price: float
     stock_quantity: int
     location_info: dict[str, Any]
+    coordinates_3d: dict[str, Any]
     similarity: float
     formatted_location: str
 
@@ -92,17 +93,34 @@ class SearchConstraints(TypedDict, total=False):
     diversify_results: bool
     max_results: int
     group_by: Literal["brand", "product"]
+    location_query: bool
+    location_zone: str
+    location_section: str
+    location_shelf: str
+    location_shelf_level: str
+    location_side: Literal["left", "right"]
+    id_lookup: bool
+
+
+class AgentPlan(TypedDict, total=False):
+    route: Literal["general", "search", "cart", "map", "direct"]
+    tools: list[str]
+    show_map: bool
+    confidence: float
+    reason: str
+    llm_reasoning_observed: bool
 
 
 class MallState(TypedDict, total=False):
     messages: Annotated[list[BaseMessage], add_messages]
     shopping_list: list[int]
     current_context: str
-    route: Literal["general", "search", "cart", "direct"]
+    route: Literal["general", "search", "cart", "map", "direct"]
     direct_response: str
     search_results: list[Product]
     validated_results: list[Product]
     constraints: SearchConstraints
+    agent_plan: AgentPlan
 
 
 @dataclass(frozen=True)
@@ -143,6 +161,73 @@ def parse_location_info(location_info: Any) -> dict[str, Any]:
     if isinstance(location_info, str):
         return json.loads(location_info)
     raise TypeError(f"location_info must be JSON string or dict, got {type(location_info)!r}")
+
+
+SHELF_POSITIONS = {
+    # Zone A
+    ('A', '1', '1'): {'x': -27, 'y': 6, 'z': 67},
+    ('A', '2', '2'): {'x': -27, 'y': 6, 'z': 59},
+    ('A', '2', '3'): {'x': -27, 'y': 6, 'z': 55.5},
+    ('A', '3', '4'): {'x': -27, 'y': 6, 'z': 48},
+    ('A', '3', '5'): {'x': -27, 'y': 6, 'z': 45},
+    ('A', '4', '6'): {'x': -27, 'y': 6, 'z': 37},
+    ('A', '4', '7'): {'x': -27, 'y': 6, 'z': 34},
+    ('A', '5', '8'): {'x': -27, 'y': 6, 'z': 26},
+    # Zone B
+    ('B', '1', '1'): {'x': -27, 'y': 6, 'z': 16},
+    ('B', '2', '2'): {'x': -27, 'y': 6, 'z': 8},
+    ('B', '2', '3'): {'x': -27, 'y': 6, 'z': 4},
+    ('B', '3', '4'): {'x': -27, 'y': 6, 'z': -4},
+    ('B', '3', '5'): {'x': -27, 'y': 6, 'z': -6},
+    ('B', '4', '6'): {'x': -27, 'y': 6, 'z': -13},
+    ('B', '4', '7'): {'x': -27, 'y': 6, 'z': -17},
+    ('B', '5', '8'): {'x': -27, 'y': 6, 'z': -25},
+    # Zone C
+    ('C', '1', '1'): {'x': -27, 'y': 6, 'z': -33},
+    ('C', '2', '2'): {'x': -27, 'y': 6, 'z': -41},
+    ('C', '2', '3'): {'x': -27, 'y': 6, 'z': -44},
+    ('C', '3', '4'): {'x': -27, 'y': 6, 'z': -53},
+    ('C', '3', '5'): {'x': -27, 'y': 6, 'z': -55},
+    ('C', '4', '6'): {'x': -27, 'y': 6, 'z': -63},
+    ('C', '4', '7'): {'x': -27, 'y': 6, 'z': -66},
+    ('C', '5', '8'): {'x': -27, 'y': 6, 'z': -73},
+    # Zone D
+    ('D', '1', '1'): {'x': 12, 'y': 6, 'z': -35},
+    ('D', '2', '2'): {'x': 12, 'y': 6, 'z': -42},
+    ('D', '2', '3'): {'x': 12, 'y': 6, 'z': -46},
+    ('D', '3', '4'): {'x': 12, 'y': 6, 'z': -54},
+    ('D', '3', '5'): {'x': 12, 'y': 6, 'z': -57},
+    ('D', '4', '6'): {'x': 12, 'y': 6, 'z': -64},
+    ('D', '4', '7'): {'x': 12, 'y': 6, 'z': -67},
+    ('D', '5', '8'): {'x': 12, 'y': 6, 'z': -74},
+    # Zone E
+    ('E', '1', '1'): {'x': 12, 'y': 6, 'z': 14},
+    ('E', '2', '2'): {'x': 12, 'y': 6, 'z': 7},
+    ('E', '2', '3'): {'x': 12, 'y': 6, 'z': 3},
+    ('E', '3', '4'): {'x': 12, 'y': 6, 'z': -4},
+    ('E', '3', '5'): {'x': 12, 'y': 6, 'z': -8},
+    ('E', '4', '6'): {'x': 12, 'y': 6, 'z': -15},
+    ('E', '4', '7'): {'x': 12, 'y': 6, 'z': -18},
+    ('E', '5', '8'): {'x': 12, 'y': 6, 'z': -25},
+}
+
+
+def get_3d_coordinates(location_info: Any) -> Optional[dict[str, float]]:
+    info = parse_location_info(location_info)
+    zone = str(info.get("zone", "")).strip().upper()
+    section = str(info.get("section", "")).strip()
+    shelf = str(info.get("shelf", "")).strip()
+    
+    key = (zone, section, shelf)
+    coords = SHELF_POSITIONS.get(key)
+    
+    # If exact match not found, try to find any shelf in the same zone+section
+    if not coords:
+        for (z, sec, sh), pos in SHELF_POSITIONS.items():
+            if z == zone and sec == section:
+                return pos
+    
+    return coords
 
 
 def format_location(location_info: Any) -> str:
@@ -206,6 +291,12 @@ def add_to_cart(product_id: int) -> str:
 def summarize_route_tool() -> str:
     """Return a tool instruction for summarizing the current shopping route."""
     return "SUMMARIZE_ROUTE"
+
+
+@tool("show_map")
+def show_map_tool() -> str:
+    """Return a tool instruction for showing the current product pins in the 3D mall map."""
+    return "SHOW_MAP"
 
 
 def summarize_route(products: list[Product], shopping_list: list[int]) -> RouteSummary:

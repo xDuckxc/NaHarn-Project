@@ -11,7 +11,7 @@ Smart Mall Agentic Navigator สำหรับช่วยค้นหาสิ
 - Docker
 - Docker Compose
 - DeepSeek API key
-- ไฟล์ `mall_products_500.csv` อยู่ที่ root ของโปรเจกต์
+- ไฟล์ `data/mall_products_500_with_3d.csv` อยู่ในโปรเจกต์
 
 ไม่ต้องตั้งค่า Supabase เองในโหมดปกติ โปรเจกต์นี้จะรัน PostgreSQL + pgvector ผ่าน Docker ให้อัตโนมัติ
 
@@ -41,7 +41,7 @@ TOP_K_PRODUCTS=8
 ### รันด้วย Docker Compose
 
 ```bash
-docker compose up --build --force-recreate
+docker compose up --build
 ```
 
 เปิดเว็บ:
@@ -50,11 +50,17 @@ docker compose up --build --force-recreate
 http://localhost:8000
 ```
 
+ถ้าเพิ่งเปลี่ยน Dockerfile, dependencies, environment สำคัญ หรืออยากบังคับสร้าง container ใหม่ ให้ใช้:
+
+```bash
+docker compose up --build --force-recreate
+```
+
 ครั้งแรกจะใช้เวลานานกว่าปกติ เพราะระบบต้อง:
 
 - ดาวน์โหลด embedding model `intfloat/multilingual-e5-large`
 - สร้าง schema/table/index ของ pgvector
-- อ่าน `mall_products_500.csv`
+- อ่าน `data/mall_products_500_with_3d.csv`
 - สร้าง embedding ให้สินค้า
 - upsert ข้อมูลเข้า PostgreSQL
 
@@ -91,6 +97,13 @@ docker compose logs --tail=200 db
 docker compose exec -T db psql -U postgres -d postgres -c "select count(*) from products;"
 ```
 
+ถ้า Docker แจ้ง `No such image: pgvector/pgvector:pg16` ให้ pull image ชัดเจนก่อน แล้วค่อยรัน Compose อีกครั้ง:
+
+```bash
+docker pull pgvector/pgvector:pg16
+docker compose up --build
+```
+
 ### คำเตือนที่เจอได้แต่ไม่ใช่ error
 
 ข้อความเหล่านี้ไม่ใช่ปัญหาร้ายแรง:
@@ -113,12 +126,23 @@ adapter_config.json 404 Not Found
 
 ```text
 .
-├── app.py                    # Chainlit entry point และ callback สำหรับ DeepSeek reasoning
-├── agents.py                 # LangGraph multi-agent workflow และ logic ค้นหา/ตะกร้า/ตอบกลับ
-├── graph_state.py            # TypedDict state, product schema helper, cart/route utilities
-├── product_store.py          # Database access layer สำหรับ local PostgreSQL + pgvector
-├── db_loader.py              # สร้าง schema, สร้าง embedding, load CSV เข้า DB
-├── mall_products_500.csv     # ข้อมูลสินค้าจริงที่ใช้โหลดเข้า DB
+├── src/
+│   └── naharn/
+│       ├── app.py            # Chainlit entry point และ callback สำหรับ DeepSeek reasoning
+│       ├── agents.py         # LangGraph workflow และ logic ค้นหา/ตะกร้า/ตอบกลับ
+│       ├── graph_state.py    # TypedDict state, product schema helper, cart/route utilities
+│       ├── product_store.py  # Database access layer สำหรับ PostgreSQL/Supabase
+│       ├── db_loader.py      # สร้าง schema, สร้าง embedding, load CSV เข้า DB
+│       ├── agent_logger.py   # เขียน operational trace สำหรับหน้า Agent Logs
+│       └── paths.py          # path กลางของ project/data/public/logs
+├── data/
+│   └── mall_products_500_with_3d.csv
+│                             # ข้อมูลสินค้าจริงพร้อมพิกัด 3D ที่ใช้โหลดเข้า DB
+├── public/
+│   ├── model_viewer.html     # 3D Navigator
+│   ├── agent_logs.html       # หน้าอ่าน operational trace
+│   ├── Naharn_3D.glb         # โมเดล 3D
+│   └── three/                # Three.js modules ที่ viewer import จริง
 ├── chainlit.md               # Welcome/usage page ที่แสดงใน Chainlit
 ├── requirements.txt          # Python dependencies
 ├── Dockerfile                # Image สำหรับ Chainlit app
@@ -137,8 +161,8 @@ adapter_config.json 404 Not Found
 2. `hf-cache-init` แก้ permission ของ HuggingFace cache volume
 3. `app-ui` รัน `scripts/start.sh`
 4. `start.sh` ตรวจ `DEEPSEEK_API_KEY`
-5. `db_loader.py --init-db --skip-if-loaded` สร้าง schema และโหลด CSV ถ้ายังไม่มีข้อมูล
-6. `chainlit run app.py` เปิด UI ที่ port `8000`
+5. `python -m naharn.db_loader --init-db --skip-if-loaded` สร้าง schema และโหลด CSV ถ้ายังไม่มีข้อมูล
+6. `chainlit run src/naharn/app.py` เปิด UI ที่ port `8000`
 
 ## 3. เครื่องมือและไลบรารีที่ใช้
 
@@ -168,6 +192,7 @@ adapter_config.json 404 Not Found
 - `messages`: ประวัติ message ใน conversation
 - `shopping_list`: list ของ product IDs ที่ user เพิ่มเข้าตะกร้า
 - `current_context`: context ล่าสุดของ graph
+- `agent_plan`: JSON plan จาก LLM planner เช่น route, tools, show_map, confidence
 - `search_results`: ผลค้นหาจาก vector DB
 - `validated_results`: ผลที่ผ่านการเช็ก stock และ format location แล้ว
 - `constraints`: filter เช่น category, price, จำนวนรายการ, group by brand
@@ -176,10 +201,11 @@ Node หลัก:
 
 | Node | หน้าที่ |
 |---|---|
-| Supervisor Agent | อ่าน user input แล้ว route ไป general/search/cart |
+| Supervisor Agent | ใช้ LLM planner เลือก route และ tool เช่น `search_products`, `add_to_cart`, `show_map`, `summarize_route` โดยมี deterministic fallback |
 | Search & Filter Node | extract constraint, embed query, ค้นหา pgvector, apply metadata filters |
 | Navigation & Stock Evaluator Node | ตัดสินค้าที่ stock หมด, format location เป็นภาษาไทย, จำกัดจำนวนผลลัพธ์ |
-| Cart & Route Planner Node | เพิ่มสินค้าเข้าลิสต์, สรุป route, คำนวณราคา |
+| Cart & Route Planner Node | ใช้ tool `add_to_cart` เพิ่มสินค้าเข้าลิสต์, สรุป route, คำนวณราคา และส่ง pin ของลิสต์ไป 3D Viewer |
+| Show Map Node | ใช้ tool `show_map` เพื่อเตรียม pin จากผลค้นหาล่าสุดหรือ shopping list แล้วเปิด `/public/model_viewer.html` |
 | General Node | ตอบคำถามทั่วไปใน persona น้องหลงทาง |
 
 ## 5. ตัวอย่างการใช้งานในหน้าเว็บ
@@ -214,6 +240,18 @@ Node หลัก:
 เพิ่ม 12 34 56
 ```
 
+เพิ่มแล้วเปิดแผนที่:
+
+```text
+เพิ่ม 12 แล้วแสดงแผนที่
+```
+
+แสดงแผนที่จากผลค้นหาหรือลิสต์ล่าสุด:
+
+```text
+แสดงแผนที่
+```
+
 สรุปเส้นทางเดินซื้อของ:
 
 ```text
@@ -229,7 +267,11 @@ Node หลัก:
 | `DEEPSEEK_MODEL` | ไม่จำเป็น | `deepseek-v4-pro` | ชื่อ model ที่ใช้ |
 | `DEEPSEEK_REASONING_EFFORT` | ไม่จำเป็น | `high` | ระดับ reasoning effort |
 | `DEEPSEEK_MAX_TOKENS` | ไม่จำเป็น | `2048` | token สูงสุดต่อ response |
+| `USE_LLM_PLANNER` | ไม่จำเป็น | `true` | เปิด LLM planner ให้เลือก route/tool ก่อน execute |
+| `USE_LLM_CONSTRAINTS` | ไม่จำเป็น | `true` | เปิด LLM extraction สำหรับ filter สินค้า |
+| `USE_LLM_GENERAL` | ไม่จำเป็น | `true` | เปิด LLM responder สำหรับคำถามทั่วไปที่ยังเกี่ยวกับการซื้อของ/สินค้าในห้าง |
 | `PRODUCT_BACKEND` | ไม่จำเป็น | `postgres` | backend สินค้า ปกติใช้ local Postgres |
+| `PRODUCT_CSV` | ไม่จำเป็น | `data/mall_products_500_with_3d.csv` | path CSV ที่ใช้โหลดสินค้าเข้า DB |
 | `PRODUCT_DATABASE_URL` | ไม่จำเป็นใน Docker | compose ตั้งให้เอง | connection string ของ product DB |
 | `APP_AUTO_LOAD_DB` | ไม่จำเป็น | `true` | auto init/load DB ตอน app start |
 | `EMBEDDING_MODEL` | ไม่จำเป็น | `intfloat/multilingual-e5-large` | embedding model |
@@ -238,7 +280,7 @@ Node หลัก:
 
 ## 7. หมายเหตุเรื่องข้อมูล
 
-โปรเจกต์ไม่สร้าง mock data เอง ระบบจะใช้ข้อมูลจาก `mall_products_500.csv` เท่านั้น
+โปรเจกต์ไม่สร้าง mock data เอง ระบบจะใช้ข้อมูลจาก `data/mall_products_500_with_3d.csv` (มี coordinates_3d) เท่านั้น
 
 ถ้าเปลี่ยน CSV แล้วอยาก reload DB ใหม่ ให้รัน:
 
@@ -246,3 +288,34 @@ Node หลัก:
 docker compose down -v
 docker compose up --build --force-recreate
 ```
+
+## 8. 3D Digital Twin Navigator
+
+ระบบมี 3D mall navigator ที่แสดงตำแหน่งสินค้าแบบ 3 มิติ:
+
+- **โมเดล**: `public/Naharn_3D.glb` (simple floor model 100m × 50m)
+- **พิกัด**: แต่ละสินค้ามี `coordinates_3d` (x, y, z) คำนวณจาก `location_info`
+- **Zones**: A (0-20m), B (20-40m), C (40-60m), D (60-80m), E (80-100m)
+- **Viewer**: เข้าถึงได้ที่ `/public/model_viewer.html` ใน Chainlit UI
+
+### การใช้งาน 3D Viewer
+
+1. เปิด Chainlit UI ที่ `http://localhost:8000`
+2. คลิกลิงก์ **"เปิด 3D Navigator"** ในข้อความต้อนรับ
+3. ใช้เมาส์ลากเพื่อหมุนมุมมอง, scroll เพื่อ zoom
+4. Pin สีแดงแสดงตำแหน่งสินค้า (เมื่อค้นหา)
+
+### API สำหรับ JavaScript Bridge
+
+```javascript
+// เพิ่ม pin สินค้า
+window.mall3D.addPin(id, x, y, z, name);
+
+// ลบ pin ทั้งหมด
+window.mall3D.clearPins();
+
+// Zoom กล้องไปยังตำแหน่ง
+window.mall3D.focusOn(x, y, z, duration);
+```
+
+Runtime output เช่น `public/pins.json`, `public/agent_logs.json` และ `logs/` จะถูกสร้างใหม่อัตโนมัติระหว่างใช้งาน จึงไม่ได้เก็บไว้ในโครงสร้างโปรเจกต์หลัก
