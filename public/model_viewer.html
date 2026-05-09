@@ -237,6 +237,14 @@ zones.forEach((zone) => {
         // Product pins
         const pins = new THREE.Group();
         scene.add(pins);
+        
+        // Path line
+        const pathLine = new THREE.Group();
+        scene.add(pathLine);
+        
+        // Entrance point (center bottom)
+        // แก้พิกัดนี้เพื่อเปลี่ยนตำแหน่งทางเข้า
+        const ENTRANCE = { x: 40, y: 0, z: 65 };
 
         // Load GLB model
         const loader = new GLTFLoader();
@@ -285,6 +293,41 @@ zones.forEach((zone) => {
             clearPins: () => {
                 while(pins.children.length > 0) {
                     pins.remove(pins.children[0]);
+                }
+            },
+            
+            drawPath: (points) => {
+                // Clear old path
+                while(pathLine.children.length > 0) {
+                    pathLine.remove(pathLine.children[0]);
+                }
+                
+                if (!points || points.length < 2) return;
+                
+                // Create line geometry
+                const geometry = new THREE.BufferGeometry();
+                const positions = [];
+                
+                points.forEach(p => {
+                    positions.push(p.x, p.y, p.z);
+                });
+                
+                geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+                
+                const material = new THREE.LineBasicMaterial({ 
+                    color: 0x00ff00,
+                    linewidth: 3
+                });
+                
+                const line = new THREE.Line(geometry, material);
+                pathLine.add(line);
+                
+                console.log(`Path drawn with ${points.length} points`);
+            },
+            
+            clearPath: () => {
+                while(pathLine.children.length > 0) {
+                    pathLine.remove(pathLine.children[0]);
                 }
             },
             
@@ -342,15 +385,42 @@ zones.forEach((zone) => {
                     
                     console.log('Clearing old pins...');
                     window.mall3D.clearPins();
-                    data.pins.forEach(pin => {
+                    
+                    // Sort pins by zone and section
+                    const sortedPins = [...data.pins].sort((a, b) => {
+                        // Zone order: A, B, C, D, E
+                        const zoneOrder = { A: 1, B: 2, C: 3, D: 4, E: 5 };
+                        const zoneA = a.name.match(/โซน ([A-E])/)?.[1] || 'A';
+                        const zoneB = b.name.match(/โซน ([A-E])/)?.[1] || 'A';
+                        
+                        if (zoneOrder[zoneA] !== zoneOrder[zoneB]) {
+                            return zoneOrder[zoneA] - zoneOrder[zoneB];
+                        }
+                        
+                        // Then by z position
+                        return b.z - a.z;
+                    });
+                    
+                    sortedPins.forEach(pin => {
                         console.log('Adding pin:', pin);
                         window.mall3D.addPin(pin.id, pin.x, pin.y, pin.z, pin.name);
                     });
                     console.log(`✓ Loaded ${data.pins.length} pins`);
                     
+                    // Draw path from entrance through all pins
+                    const pathPoints = [
+                        ENTRANCE  // Entrance
+                    ];
+                    
+                    sortedPins.forEach(pin => {
+                        pathPoints.push({ x: pin.x, y: pin.y + 8, z: pin.z });
+                    });
+                    
+                    window.mall3D.drawPath(pathPoints);
+                    
                     // Focus camera only when pins change
                     if (pinsChanged) {
-                        const firstPin = data.pins[0];
+                        const firstPin = sortedPins[0];
                         window.mall3D.focusOn(firstPin.x, firstPin.y + 8, firstPin.z, 1500);
                         lastPinCount = data.pins.length;
                     }
