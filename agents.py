@@ -32,6 +32,7 @@ from graph_state import (
     UNSUPPORTED_ROUTE_TEXT,
     add_to_cart_state,
     format_location,
+    get_3d_coordinates,
     normalize_category,
     parse_location_info,
     summarize_route,
@@ -1855,6 +1856,9 @@ async def navigation_stock_node(state: MallState, config: Optional[RunnableConfi
                 continue
         enriched = dict(product)
         enriched["formatted_location"] = format_location(product.get("location_info", {}))
+        coords_3d = get_3d_coordinates(product.get("location_info", {}))
+        if coords_3d:
+            enriched["coordinates_3d"] = coords_3d
         eligible.append(enriched)  # type: ignore[arg-type]
 
     eligible = filter_by_query_terms(eligible, user_text, constraints)

@@ -88,7 +88,24 @@ async def on_message(message: cl.Message) -> None:
     if memory:
         memory.save_context({"input": message.content}, {"output": answer})
 
-    await cl.Message(content=answer).send()
+    # Send 3D pins if products found
+    validated_results = result.get("validated_results", [])
+    if validated_results:
+        pins_js = "window.mall3D?.clearPins();\n"
+        for product in validated_results:
+            coords = product.get("coordinates_3d")
+            if coords:
+                pid = product.get("id", 0)
+                name = product.get("name", "").replace("'", "\\'")
+                x, y, z = coords.get("x", 0), coords.get("y", 0), coords.get("z", 0)
+                pins_js += f"window.mall3D?.addPin({pid}, {x}, {y}, {z}, '{name}');\n"
+        
+        await cl.Message(
+            content=answer,
+            elements=[cl.Html(content=f"<script>{pins_js}</script>", display="inline")]
+        ).send()
+    else:
+        await cl.Message(content=answer).send()
 
 
 if __name__ == "__main__":
